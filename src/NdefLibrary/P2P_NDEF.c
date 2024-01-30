@@ -13,6 +13,10 @@
 */
 
 // #ifdef P2P_SUPPORT
+
+#ifdef ARDUINO
+#include <Arduino.h>
+#endif
 #include <tool.h>
 #include <NdefLibrary/P2P_NDEF.h>
 
@@ -253,7 +257,7 @@ void P2P_NDEF_Next(unsigned char *pCmd, unsigned short Cmd_size, unsigned char *
                 /* Notify application of the NDEF reception */
                 if(pP2P_NDEF_PullCb != NULL) pP2P_NDEF_PullCb(&pCmd[9], Cmd_size-9, gP2P_NDEF_size);
 
-                if (gP2P_NDEF_size <= (Cmd_size-9))
+                if (gP2P_NDEF_size <= (unsigned int)(Cmd_size-9))
                 {
                     /* Acknowledge the PUT request */
                     gP2P_DEF_fragmentation = 0;
@@ -348,7 +352,7 @@ void P2P_NDEF_Next(unsigned char *pCmd, unsigned short Cmd_size, unsigned char *
                 P2P_SnepClient_DelayCount = 1;
                 eP2P_SnepClient_State = DelayingPush;
                 /* Wait then send a SYMM */
-                delay (SYMM_FREQ);
+                delay(SYMM_FREQ);
                 memcpy(pRsp, LLCP_SYMM, sizeof(LLCP_SYMM));
                 *pRsp_size = sizeof(LLCP_SYMM);
             }
@@ -368,7 +372,7 @@ void P2P_NDEF_Next(unsigned char *pCmd, unsigned short Cmd_size, unsigned char *
             {
                 P2P_SnepClient_DelayCount++;
                 /* Wait then send a SYMM */
-                delay (SYMM_FREQ);
+                delay(SYMM_FREQ);
                 memcpy(pRsp, LLCP_SYMM, sizeof(LLCP_SYMM));
                 *pRsp_size = sizeof(LLCP_SYMM);
             }
@@ -430,7 +434,7 @@ void P2P_NDEF_Next(unsigned char *pCmd, unsigned short Cmd_size, unsigned char *
 
         default:
             /* Wait then send SYMM */
-            delay (SYMM_FREQ);
+            delay(SYMM_FREQ);
             memcpy(pRsp, LLCP_SYMM, sizeof(LLCP_SYMM));
             *pRsp_size = sizeof(LLCP_SYMM);
             break;

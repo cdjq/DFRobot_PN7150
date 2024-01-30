@@ -10,7 +10,18 @@
  */
 #include "DFRobot_PN7150.h"
 
+ // 声明 C++ 函数，确保使用 extern "C"
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <tool.h>
+
+#ifdef __cplusplus
+}
+#endif
+
+
 #include <Nfc_settings.h>
 
 #ifdef NCI_DEBUG
@@ -26,6 +37,47 @@ static uint8_t gNextTag_Protocol = PROT_UNDETERMINED;
 
 static uint8_t NCIStartDiscovery[30];
 static uint8_t NCIStartDiscovery_length = 0;
+
+/* Discovery loop configuration according to the targeted modes of operation */
+unsigned char DiscoveryTechnologies[] = {
+#if defined P2P_SUPPORT || defined RW_SUPPORT
+    MODE_POLL | TECH_PASSIVE_NFCA,
+    MODE_POLL | TECH_PASSIVE_NFCF,
+#endif // if defined P2P_SUPPORT || defined RW_SUPPORT
+#ifdef RW_SUPPORT
+    MODE_POLL | TECH_PASSIVE_NFCB,
+    MODE_POLL | TECH_PASSIVE_15693,
+#endif // ifdef RW_SUPPORT
+#ifdef P2P_SUPPORT
+    /* Only one POLL ACTIVE mode can be enabled, if both are defined only NFCF applies */
+    MODE_POLL | TECH_ACTIVE_NFCA,
+    //MODE_POLL | TECH_ACTIVE_NFCF,
+#endif // ifdef P2P_SUPPORT
+#if defined P2P_SUPPORT || defined CARDEMU_SUPPORT
+    MODE_LISTEN | TECH_PASSIVE_NFCA,
+#endif // if defined P2P_SUPPORT || defined CARDEMU_SUPPORT
+#if defined CARDEMU_SUPPORT
+    MODE_LISTEN | TECH_PASSIVE_NFCB,
+#endif // if defined CARDEMU_SUPPORT
+#ifdef P2P_SUPPORT
+    MODE_LISTEN | TECH_PASSIVE_NFCF,
+    MODE_LISTEN | TECH_ACTIVE_NFCA,
+    MODE_LISTEN | TECH_ACTIVE_NFCF,
+#endif // ifdef P2P_SUPPORT
+};
+
+/* Mode configuration according to the targeted modes of operation */
+unsigned mode = 0
+#ifdef CARDEMU_SUPPORT
+| NXPNCI_MODE_CARDEMU
+#endif // ifdef P2P_SUPPORT
+#ifdef P2P_SUPPORT
+| NXPNCI_MODE_P2P
+#endif // ifdef CARDEMU_SUPPORT
+#ifdef RW_SUPPORT
+| NXPNCI_MODE_RW
+#endif // ifdef RW_SUPPORT
+;
 
 DFRobot_PN7150::DFRobot_PN7150()
 {
@@ -48,17 +100,17 @@ bool DFRobot_PN7150::NxpNci_CheckDevPres(void)
     if ((NbBytes == 0) || (Answer[0] != 0x40) || (Answer[1] != 0x00)) return NXPNCI_ERROR;
 
     /* Catch potential notifications */
-    // tml_Receive(Answer, sizeof(Answer), &NbBytes, TIMEOUT_100MS);
-    // if (NbBytes != 0) {
-    //     NCI_PRINT_BUF("NCI << ", Answer, NbBytes);
-    //     /* Is CORE_GENERIC_ERROR_NTF ? */
-    //     if ((Answer[0] == 0x60) && (Answer[1] == 0x07)) {
-    //         /* Is PN7150B0HN/C11004 Anti-tearing recovery procedure triggered ? */
-    //         if ((Answer[3] == 0xE6)) gRfSettingsRestored_flag = true;
-    //     } else {
-    //         return NXPNCI_ERROR;
-    //     }
-    // }
+    tml_Receive(Answer, sizeof(Answer), &NbBytes, TIMEOUT_100MS);
+    if (NbBytes != 0) {
+        NCI_PRINT_BUF("NCI << ", Answer, NbBytes);
+        /* Is CORE_GENERIC_ERROR_NTF ? */
+        if ((Answer[0] == 0x60) && (Answer[1] == 0x07)) {
+            /* Is PN7150B0HN/C11004 Anti-tearing recovery procedure triggered ? */
+            if ((Answer[3] == 0xE6)) gRfSettingsRestored_flag = true;
+        } else {
+            // return NXPNCI_ERROR;
+        }
+    }
 
     return NXPNCI_SUCCESS;
 }
@@ -142,6 +194,7 @@ void DFRobot_PN7150::NxpNci_FillInterfaceInfo(NxpNci_RfIntf_t* pRfIntf, uint8_t*
 #ifdef CARDEMU_SUPPORT
 void DFRobot_PN7150::NxpNci_ProcessCardMode(NxpNci_RfIntf_t RfIntf)
 {
+    (void)RfIntf;
     uint8_t Answer[MAX_NCI_FRAME_SIZE];
     uint16_t AnswerSize;
     uint8_t NCIStopDiscovery[] = { 0x21, 0x06, 0x01, 0x00 };
@@ -409,7 +462,7 @@ void DFRobot_PN7150::NxpNci_PresenceCheck(NxpNci_RfIntf_t RfIntf)
     switch (RfIntf.Protocol) {
     case PROT_T1T:
         do {
-            Sleep(500);
+            delay(500);
             NxpNci_HostTransceive(NCIPresCheckT1T, sizeof(NCIPresCheckT1T), Answer, sizeof(Answer), &AnswerSize);
             NxpNci_WaitForReception(Answer, sizeof(Answer), &AnswerSize, TIMEOUT_100MS);
         } while ((Answer[0] == 0x00) && (Answer[1] == 0x00));
@@ -417,7 +470,7 @@ void DFRobot_PN7150::NxpNci_PresenceCheck(NxpNci_RfIntf_t RfIntf)
 
     case PROT_T2T:
         do {
-            Sleep(500);
+            delay(500);
             NxpNci_HostTransceive(NCIPresCheckT2T, sizeof(NCIPresCheckT2T), Answer, sizeof(Answer), &AnswerSize);
             NxpNci_WaitForReception(Answer, sizeof(Answer), &AnswerSize, TIMEOUT_100MS);
         } while ((Answer[0] == 0x00) && (Answer[1] == 0x00) && (Answer[2] == 0x11));
@@ -425,7 +478,7 @@ void DFRobot_PN7150::NxpNci_PresenceCheck(NxpNci_RfIntf_t RfIntf)
 
     case PROT_T3T:
         do {
-            Sleep(500);
+            delay(500);
             NxpNci_HostTransceive(NCIPresCheckT3T, sizeof(NCIPresCheckT3T), Answer, sizeof(Answer), &AnswerSize);
             NxpNci_WaitForReception(Answer, sizeof(Answer), &AnswerSize, TIMEOUT_100MS);
         } while ((Answer[0] == 0x61) && (Answer[1] == 0x08) && ((Answer[3] == 0x00) || (Answer[4] > 0x00)));
@@ -433,7 +486,7 @@ void DFRobot_PN7150::NxpNci_PresenceCheck(NxpNci_RfIntf_t RfIntf)
 
     case PROT_ISODEP:
         do {
-            Sleep(500);
+            delay(500);
             NxpNci_HostTransceive(NCIPresCheckIsoDep, sizeof(NCIPresCheckIsoDep), Answer, sizeof(Answer), &AnswerSize);
             NxpNci_WaitForReception(Answer, sizeof(Answer), &AnswerSize, TIMEOUT_100MS);
         } while ((Answer[0] == 0x6F) && (Answer[1] == 0x11) && (Answer[2] == 0x01) && (Answer[3] == 0x01));
@@ -441,7 +494,7 @@ void DFRobot_PN7150::NxpNci_PresenceCheck(NxpNci_RfIntf_t RfIntf)
 
     case PROT_T5T:
         do {
-            Sleep(500);
+            delay(500);
             for (i = 0; i < 8; i++) NCIPresCheckIso15693[i + 6] = RfIntf.Info.NFC_VPP.ID[7 - i];
             NxpNci_HostTransceive(NCIPresCheckIso15693, sizeof(NCIPresCheckIso15693), Answer, sizeof(Answer), &AnswerSize);
             status = NxpNci_WaitForReception(Answer, sizeof(Answer), &AnswerSize, TIMEOUT_100MS);
@@ -450,7 +503,7 @@ void DFRobot_PN7150::NxpNci_PresenceCheck(NxpNci_RfIntf_t RfIntf)
 
     case PROT_MIFARE:
         do {
-            Sleep(500);
+            delay(500);
             /* Deactivate target */
             NxpNci_HostTransceive(NCIDeactivate, sizeof(NCIDeactivate), Answer, sizeof(Answer), &AnswerSize);
             NxpNci_WaitForReception(Answer, sizeof(Answer), &AnswerSize, TIMEOUT_100MS);
@@ -568,7 +621,7 @@ bool DFRobot_PN7150::NxpNci_Connect(void)
     /* Loop until NXPNCI answers */
     while (NxpNci_CheckDevPres() != NXPNCI_SUCCESS) {
         if (i-- == 0) return NXPNCI_ERROR;
-        Sleep(500);
+        delay(500);
     }
 
     NxpNci_HostTransceive(NCICoreInit, sizeof(NCICoreInit), Answer, sizeof(Answer), &AnswerSize);
@@ -843,8 +896,10 @@ bool DFRobot_PN7150::NxpNci_ConfigureParams(unsigned char* pCmd, unsigned short 
     return NXPNCI_SUCCESS;
 }
 
-bool DFRobot_PN7150::NxpNci_StartDiscovery(unsigned char* pTechTab, unsigned char TechTabSize)
+bool DFRobot_PN7150::NxpNci_StartDiscovery(void)
 {
+    unsigned char* pTechTab = DiscoveryTechnologies;
+    unsigned char TechTabSize = sizeof(DiscoveryTechnologies);
     uint8_t Answer[MAX_NCI_FRAME_SIZE];
     uint16_t AnswerSize;
     uint8_t i;
@@ -1049,66 +1104,30 @@ DFRobot_PN7150_I2C::DFRobot_PN7150_I2C(TwoWire* pWire, uint8_t i2cAddr)
 
 bool DFRobot_PN7150_I2C::begin()
 {
-    // _pWire->begin();   // Wire.h(I2C)library function initialize wire library
-    // _pWire->beginTransmission(_deviceAddr);
-    // // _pWire->write(0x00);
-    // if(0 != _pWire->endTransmission())
-    //   return false;
+    /* Open connection to NXPNCI device */
+    if (NxpNci_Connect() == NFC_ERROR) {
+        NCI_PRINT("Error: cannot connect to NXPNCI device-----------------\n");
+        return false;
+    }
+
+    if (NxpNci_ConfigureSettings() == NFC_ERROR) {
+        NCI_PRINT("Error: cannot configure NXPNCI settings\n");
+        return false;
+    }
+
+    if (NxpNci_ConfigureMode(mode) == NFC_ERROR) {
+        NCI_PRINT("Error: cannot configure NXPNCI\n");
+        return false;
+    }
+
+    /* Start Discovery */
+    if (NxpNci_StartDiscovery() != NFC_SUCCESS) {
+        NCI_PRINT("Error: cannot start discovery\n");
+        return false;
+    }
+
     return true;
 }
-
-// uint8_t DFRobot_PN7150_I2C::getWakeTime(void)
-// {
-//   uint8_t wakeTime = 0;
-//   readReg(PN7150_REG_WAKE_TIME, &wakeTime);
-//   return wakeTime;
-// }
-
-// void DFRobot_PN7150_I2C::setWakeTime(uint8_t wakeTime)
-// {
-//   writeReg(PN7150_REG_WAKE_TIME, &wakeTime);
-// }
-
-
-// void DFRobot_PN7150_I2C::writeReg(uint8_t reg, const void* pBuf)
-// {
-//   if(pBuf == NULL) {
-//     DBG("pBuf ERROR!! : null pointer");
-//   }
-//   uint8_t * _pBuf = (uint8_t *)pBuf;
-
-//   _pWire->beginTransmission(_deviceAddr);
-//   _pWire->write(reg);
-//   _pWire->write(*_pBuf);
-//   _pWire->endTransmission();
-// }
-
-// size_t DFRobot_PN7150_I2C::readReg(uint8_t reg, void* pBuf)
-// {
-//   if(NULL == pBuf) {
-//     DBG("pBuf ERROR!! : null pointer");
-//   }
-//   uint8_t * _pBuf = (uint8_t*)pBuf;
-
-//   size_t count = 0;
-
-//   _pWire->beginTransmission(_deviceAddr);
-//   _pWire->write(reg);
-//   if(0 != _pWire->endTransmission(false)) {   // Used Wire.endTransmission() to end a slave transmission started by beginTransmission() and arranged by write().
-//     DBG("endTransmission ERROR!!");
-
-//   } else {
-//     _pWire->requestFrom(_deviceAddr, (uint8_t)1);   // Master device requests size bytes from slave device, which can be accepted by master device with read() or available()
-
-//     while (_pWire->available()) {
-//       _pBuf[count++] = _pWire->read();   // Use read() to receive and put into buf
-//       // DBG(_pBuf[count-1], HEX);
-//     }
-//     // _pWire->endTransmission();
-//   }
-
-//   return count;
-// }
 
 // void PORTC_IRQHandler(void)
 // {
@@ -1122,11 +1141,6 @@ bool DFRobot_PN7150_I2C::begin()
 
 DFRobot_PN7150_I2C::status_t DFRobot_PN7150_I2C::I2C_WRITE(uint8_t* pBuff, uint16_t buffLen)
 {
-    // masterXfer.direction = kI2C_Write;
-    // masterXfer.data = pBuff;
-    // masterXfer.dataSize = buffLen;
-
-    // return I2C_MasterTransferBlocking(BOARD_NXPNCI_I2C_INSTANCE, &masterXfer);
     _pWire->beginTransmission(_deviceAddr);
     _pWire->write(pBuff, buffLen);
     //   for(size_t i = 0; i < buffLen; i++){
@@ -1140,43 +1154,31 @@ DFRobot_PN7150_I2C::status_t DFRobot_PN7150_I2C::I2C_WRITE(uint8_t* pBuff, uint1
 
 DFRobot_PN7150_I2C::status_t DFRobot_PN7150_I2C::I2C_READ(uint8_t* pBuff, uint16_t buffLen)
 {
-    // masterXfer.direction = kI2C_Read;
-    // masterXfer.data = pBuff;
-    // masterXfer.dataSize = buffLen;
-
-    // return I2C_MasterTransferBlocking(BOARD_NXPNCI_I2C_INSTANCE, &masterXfer);
     status_t count = 0;
-    _pWire->requestFrom(_deviceAddr, (uint8_t)buffLen);   // Master device requests size bytes from slave device, which can be accepted by master device with read() or available()
+    if (buffLen != _pWire->requestFrom(_deviceAddr, (uint8_t)buffLen))   // Master device requests size bytes from slave device, which can be accepted by master device with read() or available()
+        return ERROR;
 
+    delay(5);
     while (_pWire->available()) {
         pBuff[count++] = _pWire->read();   // Use read() to receive and put into buf
         // DBG(pBuff[count-1], HEX);
+    }
+    if (count != buffLen) {
+        return ERROR;
     }
     return SUCCESS;
 }
 
 DFRobot_PN7150_I2C::Status DFRobot_PN7150_I2C::tml_Init(void)
 {
-    // i2c_master_config_t masterConfig;
-    // uint32_t sourceClock;
-
     // gpio_pin_config_t irq_config = { kGPIO_DigitalInput, 0, };
     // gpio_pin_config_t ven_config = { kGPIO_DigitalOutput, 0, };
 
     // GPIO_PinInit(BOARD_NXPNCI_IRQ_GPIO, BOARD_NXPNCI_IRQ_PIN, &irq_config);
     // GPIO_PinInit(BOARD_NXPNCI_VEN_GPIO, NXPNCI_VEN_PIN, &ven_config);
 
-    // I2C_MasterGetDefaultConfig(&masterConfig);
-    // masterConfig.baudRate_Bps = BOARD_NXPNCI_I2C_BAUDRATE;
-    // sourceClock = CLOCK_GetFreq(I2C0_CLK_SRC);
-    // masterXfer.slaveAddress = BOARD_NXPNCI_I2C_ADDR;
-    // masterXfer.subaddress = 0;
-    // masterXfer.subaddressSize = 0;
-    // masterXfer.flags = kI2C_TransferDefaultFlag;
-    // I2C_MasterInit(BOARD_NXPNCI_I2C_INSTANCE, &masterConfig, sourceClock);
-
     // IrqSem = xSemaphoreCreateBinary();
-    pinMode(27, INPUT);
+    pinMode(_PN7150_IRQ, INPUT);
 
     _pWire->begin();   // Wire.h(I2C)library function initialize wire library
     // _pWire->beginTransmission(_deviceAddr);
@@ -1196,16 +1198,16 @@ DFRobot_PN7150_I2C::Status DFRobot_PN7150_I2C::tml_DeInit(void)
 DFRobot_PN7150_I2C::Status DFRobot_PN7150_I2C::tml_Reset(void)
 {
     // GPIO_ClearPinsOutput(BOARD_NXPNCI_VEN_GPIO, 1U << NXPNCI_VEN_PIN);
-    Sleep(10);
+    delay(10);
     // GPIO_SetPinsOutput(BOARD_NXPNCI_VEN_GPIO, 1U << NXPNCI_VEN_PIN);
-    Sleep(10);
+    delay(10);
     return SUCCESS;
 }
 
 DFRobot_PN7150_I2C::Status DFRobot_PN7150_I2C::tml_Tx(uint8_t* pBuff, uint16_t buffLen)
 {
     if (I2C_WRITE(pBuff, buffLen) != SUCCESS) {
-        Sleep(10);
+        delay(10);
         if (I2C_WRITE(pBuff, buffLen) != SUCCESS) {
             return ERROR;
         }
@@ -1233,12 +1235,15 @@ DFRobot_PN7150_I2C::Status DFRobot_PN7150_I2C::tml_Rx(uint8_t* pBuff, uint16_t b
 
 DFRobot_PN7150_I2C::Status DFRobot_PN7150_I2C::tml_WaitForRx(uint32_t timeout)
 {
-    Sleep(timeout);
+    // delay(timeout);
     // if (xSemaphoreTake(IrqSem, (timeout == 0) ? (portMAX_DELAY) : (portTICK_PERIOD_MS * timeout)) != pdTRUE) return ERROR;
-    // if (HIGH != digitalRead(27)) {   // PN7150 indicates it has data by driving IRQ signal HIGH
-    //     return ERROR;
-    // }
-    return SUCCESS;
+    unsigned long timeOutStart = millis();
+    while ((millis() - timeOutStart) <= timeout) {
+        if (HIGH == digitalRead(_PN7150_IRQ)) {   // PN7150 indicates it has data by driving IRQ signal HIGH
+            return SUCCESS;
+        }
+    }
+    return ERROR;
 }
 
 void DFRobot_PN7150_I2C::tml_Connect(void)
@@ -1260,6 +1265,15 @@ void DFRobot_PN7150_I2C::tml_Send(uint8_t* pBuffer, uint16_t BufferLen, uint16_t
 
 void DFRobot_PN7150_I2C::tml_Receive(uint8_t* pBuffer, uint16_t BufferLen, uint16_t* pBytes, uint16_t timeout)
 {
-    if (tml_WaitForRx(timeout) == ERROR) *pBytes = 0;
-    else tml_Rx(pBuffer, BufferLen, pBytes);
+    // if (tml_WaitForRx(timeout) == ERROR) *pBytes = 0;
+    // else tml_Rx(pBuffer, BufferLen, pBytes);
+
+    unsigned long timeOutStart = millis();
+    while ((millis() - timeOutStart) <= timeout) {
+        if (SUCCESS == tml_Rx(pBuffer, BufferLen, pBytes)) {   // PN7150 indicates it has data by driving IRQ signal HIGH
+            return;
+        }
+        delay(5);
+    }
+    *pBytes = 0;
 }

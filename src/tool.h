@@ -12,12 +12,9 @@
 *                          arising from its use.
 */
 
-#include <Arduino.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
 // #include "fsl_debug_console.h"   // 串口打印？
-
-extern void Sleep (unsigned int ms);

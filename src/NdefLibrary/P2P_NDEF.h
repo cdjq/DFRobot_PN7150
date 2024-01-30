@@ -22,7 +22,7 @@ void P2P_NDEF_Reset(void);
 void P2P_NDEF_Next(unsigned char *pCmd, unsigned short Cmd_size, unsigned char *Rsp, unsigned short *pRsp_size);
 
   /***** P2P dedicated APIs *********************************************/
-#ifdef P2P_SUPPORT
+// #ifdef P2P_SUPPORT
 /*
  * Register NDEF message to be sent to remote NFC Peer to peer Device
  * - pMessage: pointer to the NDEF message
@@ -30,7 +30,7 @@ void P2P_NDEF_Next(unsigned char *pCmd, unsigned short Cmd_size, unsigned char *
  * - pCb: pointer to function to be called back when tag has been sent
  * return NFC_SUCCESS or NFC_ERROR
  */
-  bool P2P_NDEF_SetMessage(unsigned char* pMessage, unsigned short Message_size, P2P_NDEF_PushCallback_t* pCb);
+  bool P2P_NDEF_SetMessage(unsigned char* pMessage, unsigned int Message_size, P2P_NDEF_PushCallback_t* pCb);
 
   /*
    * Register function called when NDEF message is received from remote NFC Peer to peer Device
@@ -38,6 +38,6 @@ void P2P_NDEF_Next(unsigned char *pCmd, unsigned short Cmd_size, unsigned char *
    */
   void P2P_NDEF_RegisterPullCallback(P2P_NDEF_PullCallback_t* pCb);
 
-#endif
+// #endif
   
 #endif

@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*
 """ 
-  @file  DFRobot_DF2301Q.py
-  @note  DFRobot_DF2301Q Class infrastructure, implementation of underlying methods
+  @file  DFRobot_PN7150.py
+  @note  DFRobot_PN7150 Class infrastructure, implementation of underlying methods
   @copyright  Copyright (c) 2010 DFRobot Co.Ltd (http://www.dfrobot.com)
   @licence  The MIT License (MIT)
   @author  [qsjhyy](yihuan.huang@dfrobot.com)
   @version  V1.0
   @date  2022-12-30
-  @url  https://github.com/DFRobot/DFRobot_DF2301Q
+  @url  https://github.com/DFRobot/DFRobot_PN7150
 """
 import sys
 import time
@@ -31,102 +31,102 @@ logger.addHandler(ph)
 
 
 ## i2c address
-DF2301Q_I2C_ADDR                  = 0x64
+PN7150_I2C_ADDR                  = 0x64
 
 ## Address of the register for requesting command word ID
-DF2301Q_I2C_REG_CMDID             = 0x02
+PN7150_I2C_REG_CMDID             = 0x02
 ## Address of the register for playing audio by command word ID
-DF2301Q_I2C_REG_PLAY_CMDID        = 0x03
+PN7150_I2C_REG_PLAY_CMDID        = 0x03
 ## Register for setting mute mode
-DF2301Q_I2C_REG_SET_MUTE          = 0x04
+PN7150_I2C_REG_SET_MUTE          = 0x04
 ## Register for setting volume
-DF2301Q_I2C_REG_SET_VOLUME        = 0x05
+PN7150_I2C_REG_SET_VOLUME        = 0x05
 ## Address of the register for wake-up time
-DF2301Q_I2C_REG_WAKE_TIME         = 0x06
+PN7150_I2C_REG_WAKE_TIME         = 0x06
 
 # tail
-DF2301Q_I2C_MSG_TAIL              = 0x5A
+PN7150_I2C_MSG_TAIL              = 0x5A
 
 ## UART baud rate
-DF2301Q_UART_BAUDRATE             = 9600
+PN7150_UART_BAUDRATE             = 9600
 ## Maximum data length of serial data frame
-DF2301Q_UART_MSG_DATA_MAX_SIZE    = 8
+PN7150_UART_MSG_DATA_MAX_SIZE    = 8
 
 # header
-DF2301Q_UART_MSG_HEAD_LOW         = 0xF4
-DF2301Q_UART_MSG_HEAD_HIGH        = 0xF5
-DF2301Q_UART_MSG_HEAD             = 0xF5F4
+PN7150_UART_MSG_HEAD_LOW         = 0xF4
+PN7150_UART_MSG_HEAD_HIGH        = 0xF5
+PN7150_UART_MSG_HEAD             = 0xF5F4
 # tail
-DF2301Q_UART_MSG_TAIL             = 0xFB
+PN7150_UART_MSG_TAIL             = 0xFB
 # msg_type
-DF2301Q_UART_MSG_TYPE_CMD_UP      = 0xA0
-DF2301Q_UART_MSG_TYPE_CMD_DOWN    = 0xA1
-DF2301Q_UART_MSG_TYPE_ACK         = 0xA2
-DF2301Q_UART_MSG_TYPE_NOTIFY      = 0xA3
+PN7150_UART_MSG_TYPE_CMD_UP      = 0xA0
+PN7150_UART_MSG_TYPE_CMD_DOWN    = 0xA1
+PN7150_UART_MSG_TYPE_ACK         = 0xA2
+PN7150_UART_MSG_TYPE_NOTIFY      = 0xA3
 # msg_cmd
 ## Report voice recognition results
-DF2301Q_UART_MSG_CMD_ASR_RESULT        = 0x91
+PN7150_UART_MSG_CMD_ASR_RESULT        = 0x91
 ## Play local broadcast audio
-DF2301Q_UART_MSG_CMD_PLAY_VOICE        = 0x92
+PN7150_UART_MSG_CMD_PLAY_VOICE        = 0x92
 ## Read the serial number of FLASH
-DF2301Q_UART_MSG_CMD_GET_FLASHUID      = 0x93
+PN7150_UART_MSG_CMD_GET_FLASHUID      = 0x93
 ## Read version number
-DF2301Q_UART_MSG_CMD_GET_VERSION       = 0x94
+PN7150_UART_MSG_CMD_GET_VERSION       = 0x94
 ## Reset the voice module
-DF2301Q_UART_MSG_CMD_RESET_MODULE      = 0x95
+PN7150_UART_MSG_CMD_RESET_MODULE      = 0x95
 ## Settings
-DF2301Q_UART_MSG_CMD_SET_CONFIG        = 0x96
+PN7150_UART_MSG_CMD_SET_CONFIG        = 0x96
 ## Enter update mode
-DF2301Q_UART_MSG_CMD_ENTER_OTA_MODE    = 0x97
+PN7150_UART_MSG_CMD_ENTER_OTA_MODE    = 0x97
 ## Event notification
-DF2301Q_UART_MSG_CMD_NOTIFY_STATUS     = 0x9A
-DF2301Q_UART_MSG_CMD_ACK_COMMON        = 0xAA
-# if user want add please add form DF2301Q_UART_MSG_CMD_USER_START
-DF2301Q_UART_MSG_CMD_USER_START        = 0xB0
-# msg_data  msg_cmd:DF2301Q_UART_MSG_CMD_PLAY_VOICE
-DF2301Q_UART_MSG_DATA_PLAY_START            = 0x80
-DF2301Q_UART_MSG_DATA_PLAY_PAUSE            = 0x81
-DF2301Q_UART_MSG_DATA_PLAY_RESUME           = 0x82
-DF2301Q_UART_MSG_DATA_PLAY_STOP             = 0x83
-DF2301Q_UART_MSG_DATA_PLAY_BY_VOICEID       = 0x90
-DF2301Q_UART_MSG_DATA_PLAY_BY_SEMANTIC_ID   = 0x91
-DF2301Q_UART_MSG_DATA_PLAY_BY_CMD_ID        = 0x92
-# msg_data  msg_cmd:DF2301Q_UART_MSG_CMD_GET_VERSION
+PN7150_UART_MSG_CMD_NOTIFY_STATUS     = 0x9A
+PN7150_UART_MSG_CMD_ACK_COMMON        = 0xAA
+# if user want add please add form PN7150_UART_MSG_CMD_USER_START
+PN7150_UART_MSG_CMD_USER_START        = 0xB0
+# msg_data  msg_cmd:PN7150_UART_MSG_CMD_PLAY_VOICE
+PN7150_UART_MSG_DATA_PLAY_START            = 0x80
+PN7150_UART_MSG_DATA_PLAY_PAUSE            = 0x81
+PN7150_UART_MSG_DATA_PLAY_RESUME           = 0x82
+PN7150_UART_MSG_DATA_PLAY_STOP             = 0x83
+PN7150_UART_MSG_DATA_PLAY_BY_VOICEID       = 0x90
+PN7150_UART_MSG_DATA_PLAY_BY_SEMANTIC_ID   = 0x91
+PN7150_UART_MSG_DATA_PLAY_BY_CMD_ID        = 0x92
+# msg_data  msg_cmd:PN7150_UART_MSG_CMD_GET_VERSION
 ## Serial protocol version number
-DF2301Q_UART_MSG_DATA_VER_PROTOCOL          = 0x80
+PN7150_UART_MSG_DATA_VER_PROTOCOL          = 0x80
 ## SDK version number
-DF2301Q_UART_MSG_DATA_VER_SDK               = 0x81
+PN7150_UART_MSG_DATA_VER_SDK               = 0x81
 ## ASR component version number
-DF2301Q_UART_MSG_DATA_VER_ASR               = 0x82
+PN7150_UART_MSG_DATA_VER_ASR               = 0x82
 ## Audio pre-processing algorithm version number
-DF2301Q_UART_MSG_DATA_VER_PREPROCESS        = 0x83
+PN7150_UART_MSG_DATA_VER_PREPROCESS        = 0x83
 ## Player version number
-DF2301Q_UART_MSG_DATA_VER_PLAYER            = 0x84
+PN7150_UART_MSG_DATA_VER_PLAYER            = 0x84
 ## App version number
-DF2301Q_UART_MSG_DATA_VER_APP               = 0x8A
-# msg_data  msg_cmd:DF2301Q_UART_MSG_CMD_NOTIFY_STATUS
-DF2301Q_UART_MSG_DATA_NOTIFY_POWERON        = 0xB0
-DF2301Q_UART_MSG_DATA_NOTIFY_WAKEUPENTER    = 0xB1
-DF2301Q_UART_MSG_DATA_NOTIFY_WAKEUPEXIT     = 0xB2
-DF2301Q_UART_MSG_DATA_NOTIFY_PLAYSTART      = 0xB3
-DF2301Q_UART_MSG_DATA_NOTIFY_PLAYEND        = 0xB4
-# msg_data msg_cmd:DF2301Q_UART_MSG_CMD_SET_CONFIG
-DF2301Q_UART_MSG_CMD_SET_VOLUME             = 0x80
-DF2301Q_UART_MSG_CMD_SET_ENTERWAKEUP        = 0x81
-DF2301Q_UART_MSG_CMD_SET_PRT_MID_RST        = 0x82
-DF2301Q_UART_MSG_CMD_SET_MUTE               = 0x83
-DF2301Q_UART_MSG_CMD_SET_WAKE_TIME          = 0x84
-DF2301Q_UART_MSG_CMD_SET_NEEDACK            = 0x90
-DF2301Q_UART_MSG_CMD_SET_NEEDSTRING         = 0x91
+PN7150_UART_MSG_DATA_VER_APP               = 0x8A
+# msg_data  msg_cmd:PN7150_UART_MSG_CMD_NOTIFY_STATUS
+PN7150_UART_MSG_DATA_NOTIFY_POWERON        = 0xB0
+PN7150_UART_MSG_DATA_NOTIFY_WAKEUPENTER    = 0xB1
+PN7150_UART_MSG_DATA_NOTIFY_WAKEUPEXIT     = 0xB2
+PN7150_UART_MSG_DATA_NOTIFY_PLAYSTART      = 0xB3
+PN7150_UART_MSG_DATA_NOTIFY_PLAYEND        = 0xB4
+# msg_data msg_cmd:PN7150_UART_MSG_CMD_SET_CONFIG
+PN7150_UART_MSG_CMD_SET_VOLUME             = 0x80
+PN7150_UART_MSG_CMD_SET_ENTERWAKEUP        = 0x81
+PN7150_UART_MSG_CMD_SET_PRT_MID_RST        = 0x82
+PN7150_UART_MSG_CMD_SET_MUTE               = 0x83
+PN7150_UART_MSG_CMD_SET_WAKE_TIME          = 0x84
+PN7150_UART_MSG_CMD_SET_NEEDACK            = 0x90
+PN7150_UART_MSG_CMD_SET_NEEDSTRING         = 0x91
 # ACK error code
-DF2301Q_UART_MSG_ACK_ERR_NONE               = 0x00
-DF2301Q_UART_MSG_ACK_ERR_CHECKSUM           = 0xff
-DF2301Q_UART_MSG_ACK_ERR_NOSUPPORT          = 0xfe
+PN7150_UART_MSG_ACK_ERR_NONE               = 0x00
+PN7150_UART_MSG_ACK_ERR_CHECKSUM           = 0xff
+PN7150_UART_MSG_ACK_ERR_NOSUPPORT          = 0xfe
 
 
-class DFRobot_DF2301Q(object):
+class DFRobot_PN7150(object):
   '''!
-    @brief Define DFRobot_DF2301Q basic class
+    @brief Define DFRobot_PN7150 basic class
   '''
 
   def __init__(self):
@@ -136,12 +136,12 @@ class DFRobot_DF2301Q(object):
     pass
 
 
-class DFRobot_DF2301Q_I2C(DFRobot_DF2301Q):
+class DFRobot_PN7150_I2C(DFRobot_PN7150):
   '''!
-    @brief Define DFRobot_DF2301Q_I2C basic class
+    @brief Define DFRobot_PN7150_I2C basic class
   '''
 
-  def __init__(self, i2c_addr=DF2301Q_I2C_ADDR, bus=1):
+  def __init__(self, i2c_addr=PN7150_I2C_ADDR, bus=1):
     '''!
       @brief Module I2C communication init
       @param i2c_addr - I2C communication address
@@ -149,7 +149,7 @@ class DFRobot_DF2301Q_I2C(DFRobot_DF2301Q):
     '''
     self._addr = i2c_addr
     self._i2c = smbus.SMBus(bus)
-    super(DFRobot_DF2301Q_I2C, self).__init__()
+    super(DFRobot_PN7150_I2C, self).__init__()
 
   def get_CMDID(self):
     '''!
@@ -157,7 +157,7 @@ class DFRobot_DF2301Q_I2C(DFRobot_DF2301Q):
       @return Return the obtained command word ID, returning 0 means no valid ID is obtained
     '''
     time.sleep(0.05)   # Prevent the access rate from interfering with other functions of the voice module
-    return self._read_reg(DF2301Q_I2C_REG_CMDID)
+    return self._read_reg(PN7150_I2C_REG_CMDID)
 
   def play_by_CMDID(self, CMDID):
     '''!
@@ -165,7 +165,7 @@ class DFRobot_DF2301Q_I2C(DFRobot_DF2301Q):
       @param CMDID - Command word ID
       @note Can enter wake-up state through ID-1 in I2C mode
     '''
-    self._write_reg(DF2301Q_I2C_REG_PLAY_CMDID, CMDID)
+    self._write_reg(PN7150_I2C_REG_PLAY_CMDID, CMDID)
     time.sleep(1)
 
   def get_wake_time(self):
@@ -173,7 +173,7 @@ class DFRobot_DF2301Q_I2C(DFRobot_DF2301Q):
       @brief Get the wake-up duration
       @return The current set wake-up period
     '''
-    return self._read_reg(DF2301Q_I2C_REG_WAKE_TIME)
+    return self._read_reg(PN7150_I2C_REG_WAKE_TIME)
 
   def set_wake_time(self, wake_time):
     '''!
@@ -181,7 +181,7 @@ class DFRobot_DF2301Q_I2C(DFRobot_DF2301Q):
       @param wakeTime - Wake-up duration(0-255)
     '''
     wake_time = wake_time & 0xFF
-    self._write_reg(DF2301Q_I2C_REG_WAKE_TIME, wake_time)
+    self._write_reg(PN7150_I2C_REG_WAKE_TIME, wake_time)
 
   def set_volume(self, vol):
     '''!
@@ -192,7 +192,7 @@ class DFRobot_DF2301Q_I2C(DFRobot_DF2301Q):
     #   vol = 0
     # elif (vol > 20):
     #   vol = 20
-    self._write_reg(DF2301Q_I2C_REG_SET_VOLUME, vol)
+    self._write_reg(PN7150_I2C_REG_SET_VOLUME, vol)
 
   def set_mute_mode(self, mode):
     '''!
@@ -201,7 +201,7 @@ class DFRobot_DF2301Q_I2C(DFRobot_DF2301Q):
     '''
     if (0 != mode):
       mode = 1
-    self._write_reg(DF2301Q_I2C_REG_SET_MUTE, mode)
+    self._write_reg(PN7150_I2C_REG_SET_MUTE, mode)
 
   def _write_reg(self, reg, data):
     '''!
@@ -224,9 +224,9 @@ class DFRobot_DF2301Q_I2C(DFRobot_DF2301Q):
     return data[0]
 
 
-class DFRobot_DF2301Q_UART(DFRobot_DF2301Q):
+class DFRobot_PN7150_UART(DFRobot_PN7150):
   '''!
-    @brief Define DFRobot_DF2301Q_UART basic class
+    @brief Define DFRobot_PN7150_UART basic class
   '''
 
   REV_STATE_HEAD0   = 0x00
@@ -262,10 +262,10 @@ class DFRobot_DF2301Q_UART(DFRobot_DF2301Q):
     '''
     self.uart_cmd_ID = 0
     self._send_sequence = 0
-    self._ser = serial.Serial("/dev/ttyAMA0", baudrate=DF2301Q_UART_BAUDRATE, bytesize=8, parity='N', stopbits=1, timeout=0.5)
+    self._ser = serial.Serial("/dev/ttyAMA0", baudrate=PN7150_UART_BAUDRATE, bytesize=8, parity='N', stopbits=1, timeout=0.5)
     if self._ser.isOpen == False:
       self._ser.open()
-    super(DFRobot_DF2301Q_UART, self).__init__()
+    super(DFRobot_PN7150_UART, self).__init__()
 
   def get_CMDID(self):
     '''!
@@ -283,14 +283,14 @@ class DFRobot_DF2301Q_UART(DFRobot_DF2301Q):
       @param CMDID - Command word ID
     '''
     msg = self.uart_msg()
-    msg.header = DF2301Q_UART_MSG_HEAD
+    msg.header = PN7150_UART_MSG_HEAD
     msg.data_length = 6
-    msg.msg_type = DF2301Q_UART_MSG_TYPE_CMD_DOWN
-    msg.msg_cmd = DF2301Q_UART_MSG_CMD_PLAY_VOICE
+    msg.msg_type = PN7150_UART_MSG_TYPE_CMD_DOWN
+    msg.msg_cmd = PN7150_UART_MSG_CMD_PLAY_VOICE
     msg.msg_seq = self._send_sequence
     self._send_sequence += 1
-    msg.msg_data[0] = DF2301Q_UART_MSG_DATA_PLAY_START
-    msg.msg_data[1] = DF2301Q_UART_MSG_DATA_PLAY_BY_CMD_ID
+    msg.msg_data[0] = PN7150_UART_MSG_DATA_PLAY_START
+    msg.msg_data[1] = PN7150_UART_MSG_DATA_PLAY_BY_CMD_ID
     msg.msg_data[2] = play_id
 
     self._send_packet(msg)
@@ -301,10 +301,10 @@ class DFRobot_DF2301Q_UART(DFRobot_DF2301Q):
       @brief Reset the module
     '''
     msg = self.uart_msg()
-    msg.header = DF2301Q_UART_MSG_HEAD
+    msg.header = PN7150_UART_MSG_HEAD
     msg.data_length = 5
-    msg.msg_type = DF2301Q_UART_MSG_TYPE_CMD_DOWN
-    msg.msg_cmd = DF2301Q_UART_MSG_CMD_RESET_MODULE
+    msg.msg_type = PN7150_UART_MSG_TYPE_CMD_DOWN
+    msg.msg_cmd = PN7150_UART_MSG_CMD_RESET_MODULE
     msg.msg_seq = self._send_sequence
     self._send_sequence += 1
     msg.msg_data[0] = 'r'
@@ -320,17 +320,17 @@ class DFRobot_DF2301Q_UART(DFRobot_DF2301Q):
     '''!
       @brief Set commands of the module
       @param set_type - Set type
-      @n       DF2301Q_UART_MSG_CMD_SET_VOLUME : Set volume, the set value range 1-7
-      @n       DF2301Q_UART_MSG_CMD_SET_ENTERWAKEUP : Enter wake-up state; set value 0
-      @n       DF2301Q_UART_MSG_CMD_SET_MUTE : Mute mode; set value 1: mute, 0: unmute
-      @n       DF2301Q_UART_MSG_CMD_SET_WAKE_TIME : Wake-up duration; the set value range 0-255s
+      @n       PN7150_UART_MSG_CMD_SET_VOLUME : Set volume, the set value range 1-7
+      @n       PN7150_UART_MSG_CMD_SET_ENTERWAKEUP : Enter wake-up state; set value 0
+      @n       PN7150_UART_MSG_CMD_SET_MUTE : Mute mode; set value 1: mute, 0: unmute
+      @n       PN7150_UART_MSG_CMD_SET_WAKE_TIME : Wake-up duration; the set value range 0-255s
       @param set_value - Set value, refer to the set type above for the range
     '''
     msg = self.uart_msg()
-    msg.header = DF2301Q_UART_MSG_HEAD
+    msg.header = PN7150_UART_MSG_HEAD
     msg.data_length = 5
-    msg.msg_type = DF2301Q_UART_MSG_TYPE_CMD_DOWN
-    msg.msg_cmd = DF2301Q_UART_MSG_CMD_SET_CONFIG
+    msg.msg_type = PN7150_UART_MSG_TYPE_CMD_DOWN
+    msg.msg_cmd = PN7150_UART_MSG_CMD_SET_CONFIG
     msg.msg_seq = self._send_sequence
     self._send_sequence += 1
     msg.msg_data[0] = set_type
@@ -360,7 +360,7 @@ class DFRobot_DF2301Q_UART(DFRobot_DF2301Q):
       chk_sum += msg.msg_data[i]
     data.append(chk_sum & 0xFF)
     data.append((chk_sum >> 8) & 0xFF)
-    data.append(DF2301Q_UART_MSG_TAIL & 0xFF)
+    data.append(PN7150_UART_MSG_TAIL & 0xFF)
     logger.info(data)
     self._ser.write(data)
     time.sleep(0.1)
@@ -378,12 +378,12 @@ class DFRobot_DF2301Q_UART(DFRobot_DF2301Q):
     while self._ser.in_waiting:
       receive_char = ord(self._ser.read(1))
       if(self.REV_STATE_HEAD0 == rev_state):
-        if(DF2301Q_UART_MSG_HEAD_LOW == receive_char):
+        if(PN7150_UART_MSG_HEAD_LOW == receive_char):
           rev_state = self.REV_STATE_HEAD1
       elif(self.REV_STATE_HEAD1 == rev_state):
-        if(DF2301Q_UART_MSG_HEAD_HIGH == receive_char):
+        if(PN7150_UART_MSG_HEAD_HIGH == receive_char):
           rev_state = self.REV_STATE_LENGTH0
-          msg.header = DF2301Q_UART_MSG_HEAD
+          msg.header = PN7150_UART_MSG_HEAD
         else:
           rev_state = self.REV_STATE_HEAD0
       elif(self.REV_STATE_LENGTH0 == rev_state):
@@ -419,8 +419,8 @@ class DFRobot_DF2301Q_UART(DFRobot_DF2301Q):
 
         rev_state = self.REV_STATE_TAIL
       elif(self.REV_STATE_TAIL == rev_state):
-        if(DF2301Q_UART_MSG_TAIL == receive_char):
-          if(DF2301Q_UART_MSG_TYPE_CMD_UP == msg.msg_type):
+        if(PN7150_UART_MSG_TAIL == receive_char):
+          if(PN7150_UART_MSG_TYPE_CMD_UP == msg.msg_type):
             self.uart_cmd_ID = msg.msg_data[0]
         else:
           data_rev_count = 0

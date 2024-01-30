@@ -39,8 +39,8 @@ void RW_NDEF_Reset(unsigned char type);
 void RW_NDEF_Read_Next(unsigned char *pCmd, unsigned short Cmd_size, unsigned char *Rsp, unsigned short *pRsp_size);
 void RW_NDEF_Write_Next(unsigned char *pCmd, unsigned short Cmd_size, unsigned char *Rsp, unsigned short *pRsp_size);
 
-#ifdef RW_SUPPORT
-#ifndef NO_NDEF_SUPPORT
+// #ifdef RW_SUPPORT
+// #ifndef NO_NDEF_SUPPORT
 /*
  * Register NDEF message to be written to remote NFC Tag
  * - pMessage: pointer to the NDEF message
@@ -55,7 +55,7 @@ void RW_NDEF_Write_Next(unsigned char *pCmd, unsigned short Cmd_size, unsigned c
    * - pCb: pointer to function to be called back when NDEF message has been read
    */
   void RW_NDEF_RegisterPullCallback(RW_NDEF_PullCallback_t* pCb);
-#endif
-#endif
+// #endif
+// #endif
 
 #endif

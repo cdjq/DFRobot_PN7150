@@ -228,21 +228,6 @@ public:
    */
   virtual bool begin(void) = 0;
 
-  /**
-   * @fn getWakeTime
-   * @brief Get the wake-up duration
-   * @return The current set wake-up period
-   */
-  uint8_t getWakeTime(void);
-
-  /**
-   * @fn setWakeTime
-   * @brief Set wake-up duration
-   * @param wakeTime - Wake-up duration(0-255)
-   * @return None
-   */
-  void setWakeTime(uint8_t wakeTime);
-
   /**********************************************************************/
 
   /***** NFC dedicated API **********************************************/
@@ -293,7 +278,8 @@ public:
    * - TechTabSize: number of items in the list
    * return NFC_SUCCESS or NFC_ERROR
    */
-  bool NxpNci_StartDiscovery(unsigned char* pTechTab, unsigned char TechTabSize);
+  bool NxpNci_StartDiscovery(void);
+  // bool NxpNci_StartDiscovery(unsigned char* pTechTab, unsigned char TechTabSize);
 
   /*
    * Stop NFC Discovery loop
@@ -492,6 +478,7 @@ private:
   Status tml_WaitForRx(uint32_t timeout);
 
 private:
+  #define  _PN7150_IRQ      (27)
   TwoWire* _pWire;   // Pointer to I2C communication method
   uint8_t _deviceAddr;   // Address of the device for I2C communication
 };

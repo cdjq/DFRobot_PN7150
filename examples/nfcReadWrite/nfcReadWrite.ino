@@ -1,66 +1,26 @@
 /*!
- * @file  test.ino
- * @brief
+ * @file nfcReadWrite.ino
+ * @brief read data and write data to nfc card
+ * @details  This demo runs on the arduino platform.
+           Download this demo to learn how to wirte data to card.
+           We can read the data on the card to see if the write is successful.
  * @copyright  Copyright (c) 2010 DFRobot Co.Ltd (http://www.dfrobot.com)
- * @licence  The MIT License (MIT)
+ * @license     The MIT license (MIT)
  * @author  [qsjhyy](yihuan.huang@dfrobot.com)
  * @version  V1.0
- * @date  2024-01-18
- * @url  https://github.com/DFRobot/DFRobot_PN7150
- */
+ * @date  2024-01-29
+ * @url https://github.com/DFRobot/DFRobot_PN7150
+*/
 #include "DFRobot_PN7150.h"
-
- //I2C communication
-DFRobot_PN7150_I2C PN7150;
 
 #define RW_NDEF_WRITING
 #define RW_RAW_EXCHANGE
-#define CARDEMU_RAW_EXCHANGE
 
 #define PRINT_BUF(x,y,z)  {unsigned int loop; printf(x); for(loop=0;loop<z;loop++) printf("%.2x ", y[loop]); printf("\n");}
 
-/* Discovery loop configuration according to the targeted modes of operation */
-unsigned char DiscoveryTechnologies[] = {
-#if defined P2P_SUPPORT || defined RW_SUPPORT
-    MODE_POLL | TECH_PASSIVE_NFCA,
-    MODE_POLL | TECH_PASSIVE_NFCF,
-#endif // if defined P2P_SUPPORT || defined RW_SUPPORT
-#ifdef RW_SUPPORT
-    MODE_POLL | TECH_PASSIVE_NFCB,
-    MODE_POLL | TECH_PASSIVE_15693,
-#endif // ifdef RW_SUPPORT
-#ifdef P2P_SUPPORT
-    /* Only one POLL ACTIVE mode can be enabled, if both are defined only NFCF applies */
-    MODE_POLL | TECH_ACTIVE_NFCA,
-    //MODE_POLL | TECH_ACTIVE_NFCF,
-#endif // ifdef P2P_SUPPORT
-#if defined P2P_SUPPORT || defined CARDEMU_SUPPORT
-    MODE_LISTEN | TECH_PASSIVE_NFCA,
-#endif // if defined P2P_SUPPORT || defined CARDEMU_SUPPORT
-#if defined CARDEMU_SUPPORT
-    MODE_LISTEN | TECH_PASSIVE_NFCB,
-#endif // if defined CARDEMU_SUPPORT
-#ifdef P2P_SUPPORT
-    MODE_LISTEN | TECH_PASSIVE_NFCF,
-    MODE_LISTEN | TECH_ACTIVE_NFCA,
-    MODE_LISTEN | TECH_ACTIVE_NFCF,
-#endif // ifdef P2P_SUPPORT
-};
+DFRobot_PN7150_I2C PN7150;
+DFRobot_PN7150_I2C::NxpNci_RfIntf_t RfInterface;
 
-/* Mode configuration according to the targeted modes of operation */
-unsigned mode = 0
-#ifdef CARDEMU_SUPPORT
-| NXPNCI_MODE_CARDEMU
-#endif // ifdef P2P_SUPPORT
-#ifdef P2P_SUPPORT
-| NXPNCI_MODE_P2P
-#endif // ifdef CARDEMU_SUPPORT
-#ifdef RW_SUPPORT
-| NXPNCI_MODE_RW
-#endif // ifdef RW_SUPPORT
-;
-
-#if defined P2P_SUPPORT || defined RW_SUPPORT
 static unsigned char gNdefBuffer[100];
 static unsigned short gPendingReception = 0;
 
@@ -175,9 +135,8 @@ void NdefPull_Cb(unsigned char* pNdefMessage, unsigned short ReceivedSize, unsig
 
   printf("\n");
 }
-#endif // if defined P2P_SUPPORT || defined RW_SUPPORT
 
-#if defined P2P_SUPPORT || defined CARDEMU_SUPPORT || defined RW_NDEF_WRITING
+#if defined RW_NDEF_WRITING
 #define ADD 0 // Enlarge NDEF message by adding dummy content
 const char NDEF_MESSAGE[14 + ADD] = { 0xC1,   // MB/ME/CF/1/IL/TNF
         0x01,   // TYPE LENGTH
@@ -193,11 +152,12 @@ const char NDEF_MESSAGE[14 + ADD] = { 0xC1,   // MB/ME/CF/1/IL/TNF
 
 void NdefPush_Cb(unsigned char* pNdefRecord, unsigned short NdefRecordSize)
 {
-  printf("--- NDEF Record sent\n\n");
+  (void)pNdefRecord;
+  (void)NdefRecordSize;
+  Serial.print("--- NDEF Record sent\n\n");
 }
 #endif // if defined P2P_SUPPORT || defined CARDEMU_SUPPORT
 
-#ifdef RW_SUPPORT
 #ifdef RW_RAW_EXCHANGE
 void PCD_MIFARE_scenario(void)
 {
@@ -342,59 +302,10 @@ void PCD_ISO14443_4_scenario(void)
 }
 #endif // ifdef RW_RAW_EXCHANGE
 
-void displayCardInfo(DFRobot_PN7150_I2C::NxpNci_RfIntf_t RfIntf)
-{
-  switch (RfIntf.Protocol) {
-  case PROT_T1T:
-  case PROT_T2T:
-  case PROT_T3T:
-  case PROT_ISODEP:
-    printf(" - POLL MODE: Remote T%dT card activated\n", RfIntf.Protocol);
-    break;
-  case PROT_T5T:
-    printf(" - POLL MODE: Remote T5T card activated\n");
-    break;
-  case PROT_MIFARE:
-    printf(" - POLL MODE: Remote MIFARE card activated\n");
-    break;
-  default:
-    printf(" - POLL MODE: Undetermined target\n");
-    return;
-  }
-
-  switch (RfIntf.ModeTech) {
-  case (MODE_POLL | TECH_PASSIVE_NFCA):
-    printf("\tSENS_RES = 0x%.2x 0x%.2x\n", RfIntf.Info.NFC_APP.SensRes[0], RfIntf.Info.NFC_APP.SensRes[1]);
-    PRINT_BUF("\tNFCID = ", RfIntf.Info.NFC_APP.NfcId, RfIntf.Info.NFC_APP.NfcIdLen);
-    if (RfIntf.Info.NFC_APP.SelResLen != 0) printf("\tSEL_RES = 0x%.2x\n", RfIntf.Info.NFC_APP.SelRes[0]);
-    break;
-
-  case (MODE_POLL | TECH_PASSIVE_NFCB):
-    if (RfIntf.Info.NFC_BPP.SensResLen != 0) PRINT_BUF("\tSENS_RES = ", RfIntf.Info.NFC_BPP.SensRes, RfIntf.Info.NFC_BPP.SensResLen);
-    break;
-
-  case (MODE_POLL | TECH_PASSIVE_NFCF):
-    printf("\tBitrate = %s\n", (RfIntf.Info.NFC_FPP.BitRate == 1) ? "212" : "424");
-    if (RfIntf.Info.NFC_FPP.SensResLen != 0) PRINT_BUF("\tSENS_RES = ", RfIntf.Info.NFC_FPP.SensRes, RfIntf.Info.NFC_FPP.SensResLen);
-    break;
-
-  case (MODE_POLL | TECH_PASSIVE_15693):
-    PRINT_BUF("\tID = ", RfIntf.Info.NFC_VPP.ID, sizeof(RfIntf.Info.NFC_VPP.ID));
-    printf("\tAFI = 0x%.2x\n", RfIntf.Info.NFC_VPP.AFI);
-    printf("\tDSFID = 0x%.2x\n", RfIntf.Info.NFC_VPP.DSFID);
-    break;
-
-  default:
-    break;
-  }
-}
-
 void task_nfc_reader(DFRobot_PN7150_I2C::NxpNci_RfIntf_t RfIntf)
 {
   /* For each discovered cards */
   while (1) {
-    /* Display detected card information */
-    displayCardInfo(RfIntf);
 
 #ifndef RW_RAW_EXCHANGE
     /* Process NDEF message read */
@@ -403,7 +314,7 @@ void task_nfc_reader(DFRobot_PN7150_I2C::NxpNci_RfIntf_t RfIntf)
     RW_NDEF_SetMessage((unsigned char*)NDEF_MESSAGE, sizeof(NDEF_MESSAGE), *NdefPush_Cb);
     /* Process NDEF message write */
     PN7150.NxpNci_ReaderReActivate(&RfIntf);
-    PN7150.NxpNci_ProcessReaderMode(RfIntf, WRITE_NDEF);
+    PN7150.NxpNci_ProcessReaderMode(RfIntf, DFRobot_PN7150::WRITE_NDEF);
 #endif // ifdef RW_NDEF_WRITING
 #else // ifndef RW_RAW_EXCHANGE
     /* What's the detected card type ? */
@@ -436,147 +347,42 @@ void task_nfc_reader(DFRobot_PN7150_I2C::NxpNci_RfIntf_t RfIntf)
   /* Wait for card removal */
   PN7150.NxpNci_ProcessReaderMode(RfIntf, PN7150.PRESENCE_CHECK);
 
-  printf("CARD REMOVED\n");
+  Serial.print("CARD REMOVED\n");
 
   /* Restart discovery loop */
   PN7150.NxpNci_StopDiscovery();
-  while (PN7150.NxpNci_StartDiscovery(DiscoveryTechnologies, sizeof(DiscoveryTechnologies)));
+  while (PN7150.NxpNci_StartDiscovery());
 }
-#endif // ifdef RW_SUPPORT
-
-#ifdef CARDEMU_SUPPORT
-#ifdef CARDEMU_RAW_EXCHANGE
-void PICC_ISO14443_4_scenario(void)
-{
-  unsigned char OK[] = { 0x90, 0x00 };
-  unsigned char Cmd[256];
-  unsigned char CmdSize;
-
-  while (1) {
-    if (PN7150.NxpNci_CardModeReceive(Cmd, &CmdSize) == NFC_SUCCESS) {
-      if ((CmdSize >= 2) && (Cmd[0] == 0x00)) {
-        switch (Cmd[1]) {
-        case 0xA4:
-          printf("Select File received\n");
-          break;
-
-        case 0xB0:
-          printf("Read Binary received\n");
-          break;
-
-        case 0xD0:
-          printf("Write Binary received\n");
-          break;
-
-        default:
-          break;
-        }
-
-        PN7150.NxpNci_CardModeSend(OK, sizeof(OK));
-      }
-    } else {
-      printf("End of transaction\n");
-      return;
-    }
-  }
-}
-#endif // ifdef CARDEMU_RAW_EXCHANGE
-#endif // ifdef CARDEMU_SUPPORT
-
-DFRobot_PN7150_I2C::NxpNci_RfIntf_t RfInterface;
 
 void setup()
 {
   Serial.begin(115200);
-
-  // Init the sensor
-  while (!(PN7150.begin())) {
-    Serial.println("Communication with device failed, please check connection");
-    delay(3000);
-  }
-  Serial.println("Begin ok!");
-
-#ifdef CARDEMU_SUPPORT
-  /* Register NDEF message to be sent to remote reader */
-  T4T_NDEF_EMU_SetMessage((unsigned char*)NDEF_MESSAGE, sizeof(NDEF_MESSAGE), *NdefPush_Cb);
-#endif // ifdef CARDEMU_SUPPORT
-
-#ifdef P2P_SUPPORT
-  /* Register NDEF message to be sent to remote peer */
-  P2P_NDEF_SetMessage((unsigned char*)NDEF_MESSAGE, sizeof(NDEF_MESSAGE), *NdefPush_Cb);
-  /* Register callback for reception of NDEF message from remote peer */
-  P2P_NDEF_RegisterPullCallback(*NdefPull_Cb);
-#endif // ifdef P2P_SUPPORT
-
-#ifdef RW_SUPPORT
+  
   /* Register callback for reception of NDEF message from remote cards */
   RW_NDEF_RegisterPullCallback(*NdefPull_Cb);
-#endif // ifdef RW_SUPPORT
 
-  /* Open connection to NXPNCI device */
-  while (PN7150.NxpNci_Connect() == NFC_ERROR) {
-    printf("Error: cannot connect to NXPNCI device-----------------\n");
+  // Initialize the NFC module
+  Serial.print("Connecting Device . . .");
+  while (!(PN7150.begin())) {
+    Serial.print(" .");
+    delay(1000);
   }
-
-  while (PN7150.NxpNci_ConfigureSettings() == NFC_ERROR) {
-    printf("Error: cannot configure NXPNCI settings\n");
-  }
-
-  while (PN7150.NxpNci_ConfigureMode(mode) == NFC_ERROR) {
-    printf("Error: cannot configure NXPNCI\n");
-  }
-
-  /* Start Discovery */
-  while (PN7150.NxpNci_StartDiscovery(DiscoveryTechnologies, sizeof(DiscoveryTechnologies)) != NFC_SUCCESS) {
-    printf("Error: cannot start discovery\n");
-  }
-
+  Serial.println("\nBegin ok!");
 }
 
 void loop()
 {
   printf("\nWAITING FOR DEVICE DISCOVERY\n");
 
-#if defined P2P_SUPPORT || defined RW_SUPPORT
   /* Reset reception index */
   gPendingReception = false;
-#endif
 
   /* Wait until a peer is discovered */
   while (PN7150.NxpNci_WaitForDiscoveryNotification(&RfInterface) != NFC_SUCCESS);
 
-#ifdef CARDEMU_SUPPORT
-  /* Is activated from remote T4T ? */
-  if ((RfInterface.Interface == INTF_ISODEP) && ((RfInterface.ModeTech & MODE_MASK) == MODE_LISTEN)) {
-    printf(" - LISTEN MODE: Activated from remote Reader\n");
-#ifndef CARDEMU_RAW_EXCHANGE
-    PN7150.NxpNci_ProcessCardMode(RfInterface);
-#else
-    PICC_ISO14443_4_scenario();
-#endif
-    printf("READER DISCONNECTED\n");
-  } else
-#endif
-
-#ifdef P2P_SUPPORT
-    /* Is P2P discovery ? */
-    if (RfInterface.Interface == INTF_NFCDEP) {
-      if ((RfInterface.ModeTech & MODE_LISTEN) == MODE_LISTEN) printf(" - P2P TARGET MODE: Activated from remote Initiator\n");
-      else printf(" - P2P INITIATOR MODE: Remote Target activated\n");
-
-      /* Process with SNEP for NDEF exchange */
-      PN7150.NxpNci_ProcessP2pMode(RfInterface);
-
-      printf("PEER LOST\n");
-    } else
-#endif // ifdef P2P_SUPPORT
-#ifdef RW_SUPPORT
-      if ((RfInterface.ModeTech & MODE_MASK) == MODE_POLL) {
-        task_nfc_reader(RfInterface);
-      } else
-#endif // ifdef RW_SUPPORT
-      {
-        printf("WRONG DISCOVERY\n");
-      }
-
+  if ((RfInterface.ModeTech & MODE_MASK) == MODE_POLL) {
+    task_nfc_reader(RfInterface);
+  } else {
+    printf("WRONG DISCOVERY\n");
+  }
 }

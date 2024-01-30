@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "tool.h": "c",
+        "p2p_ndef.h": "c",
+        "t4t_ndef_emu.h": "c"
+    }
+}
