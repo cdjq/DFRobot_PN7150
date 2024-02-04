@@ -92,9 +92,6 @@ void loop()
 {
   printf("\nWAITING FOR DEVICE DISCOVERY\n");
 
-  /* Reset reception index */
-  gPendingReception = false;
-
   /* Wait until a peer is discovered */
   while (PN7150.NxpNci_WaitForDiscoveryNotification(&RfInterface) != NFC_SUCCESS);
 

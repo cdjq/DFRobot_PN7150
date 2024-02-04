@@ -6,7 +6,7 @@
   @licence  The MIT License (MIT)
   @author  [qsjhyy](yihuan.huang@dfrobot.com)
   @version  V1.0
-  @date  2022-12-30
+  @date  2024-01-31
   @url  https://github.com/DFRobot/DFRobot_PN7150
 """
 import sys
@@ -14,8 +14,8 @@ import time
 
 import array
 import smbus
-import serial
-import numpy as np
+import RPi.GPIO as GPIO
+from i2c import LinuxI2C
 
 import logging
 from ctypes import *
@@ -23,409 +23,482 @@ from ctypes import *
 
 logger = logging.getLogger()
 # logger.setLevel(logging.INFO)   # Display all print information
-logger.setLevel(logging.FATAL)   # If you don’t want to display too many prints, only print errors, please use this option
+logger.setLevel(
+    logging.FATAL
+)  # If you don’t want to display too many prints, only print errors, please use this option
 ph = logging.StreamHandler()
-formatter = logging.Formatter("%(asctime)s - [%(filename)s %(funcName)s]:%(lineno)d - %(levelname)s: %(message)s")
-ph.setFormatter(formatter) 
+formatter = logging.Formatter(
+    "%(asctime)s - [%(filename)s %(funcName)s]:%(lineno)d - %(levelname)s: %(message)s"
+)
+ph.setFormatter(formatter)
 logger.addHandler(ph)
 
 
 ## i2c address
-PN7150_I2C_ADDR                  = 0x64
+PN7150_I2C_ADDR = 0x28
 
-## Address of the register for requesting command word ID
-PN7150_I2C_REG_CMDID             = 0x02
-## Address of the register for playing audio by command word ID
-PN7150_I2C_REG_PLAY_CMDID        = 0x03
-## Register for setting mute mode
-PN7150_I2C_REG_SET_MUTE          = 0x04
-## Register for setting volume
-PN7150_I2C_REG_SET_VOLUME        = 0x05
-## Address of the register for wake-up time
-PN7150_I2C_REG_WAKE_TIME         = 0x06
+_TICKS_PERIOD = 1 << 29
 
-# tail
-PN7150_I2C_MSG_TAIL              = 0x5A
+_STATUS_OK = 0x00
 
-## UART baud rate
-PN7150_UART_BAUDRATE             = 9600
-## Maximum data length of serial data frame
-PN7150_UART_MSG_DATA_MAX_SIZE    = 8
+_status = {
+    # Status
+    0x00: "OK",
+    0x01: "REJECTED",
+    0x02: "RF_FRAME_CORRUPTED",
+    0x03: "FAILED",
+    0x04: "NOT_INITIALIZED",
+    0x05: "SYNTAX_ERROR",
+    0x06: "SEMANTIC_ERROR",
+    0x09: "INVALID_PARAM",
+    0x0A: "MESSAGE_SIZE_EXCEEDED",
+    # Discovery
+    0xA0: "ALREADY_STARTED",
+    0xA1: "TARGET_ACTIVATION_FAILED",
+    0xA2: "TEAR_DOWN",
+    # RF
+    0xB0: "TRANSMISSION_ERROR",
+    0xB1: "PROTOCOL_ERROR",
+    0xB2: "TIMEOUT_ERROR",
+}
 
-# header
-PN7150_UART_MSG_HEAD_LOW         = 0xF4
-PN7150_UART_MSG_HEAD_HIGH        = 0xF5
-PN7150_UART_MSG_HEAD             = 0xF5F4
-# tail
-PN7150_UART_MSG_TAIL             = 0xFB
-# msg_type
-PN7150_UART_MSG_TYPE_CMD_UP      = 0xA0
-PN7150_UART_MSG_TYPE_CMD_DOWN    = 0xA1
-PN7150_UART_MSG_TYPE_ACK         = 0xA2
-PN7150_UART_MSG_TYPE_NOTIFY      = 0xA3
-# msg_cmd
-## Report voice recognition results
-PN7150_UART_MSG_CMD_ASR_RESULT        = 0x91
-## Play local broadcast audio
-PN7150_UART_MSG_CMD_PLAY_VOICE        = 0x92
-## Read the serial number of FLASH
-PN7150_UART_MSG_CMD_GET_FLASHUID      = 0x93
-## Read version number
-PN7150_UART_MSG_CMD_GET_VERSION       = 0x94
-## Reset the voice module
-PN7150_UART_MSG_CMD_RESET_MODULE      = 0x95
-## Settings
-PN7150_UART_MSG_CMD_SET_CONFIG        = 0x96
-## Enter update mode
-PN7150_UART_MSG_CMD_ENTER_OTA_MODE    = 0x97
-## Event notification
-PN7150_UART_MSG_CMD_NOTIFY_STATUS     = 0x9A
-PN7150_UART_MSG_CMD_ACK_COMMON        = 0xAA
-# if user want add please add form PN7150_UART_MSG_CMD_USER_START
-PN7150_UART_MSG_CMD_USER_START        = 0xB0
-# msg_data  msg_cmd:PN7150_UART_MSG_CMD_PLAY_VOICE
-PN7150_UART_MSG_DATA_PLAY_START            = 0x80
-PN7150_UART_MSG_DATA_PLAY_PAUSE            = 0x81
-PN7150_UART_MSG_DATA_PLAY_RESUME           = 0x82
-PN7150_UART_MSG_DATA_PLAY_STOP             = 0x83
-PN7150_UART_MSG_DATA_PLAY_BY_VOICEID       = 0x90
-PN7150_UART_MSG_DATA_PLAY_BY_SEMANTIC_ID   = 0x91
-PN7150_UART_MSG_DATA_PLAY_BY_CMD_ID        = 0x92
-# msg_data  msg_cmd:PN7150_UART_MSG_CMD_GET_VERSION
-## Serial protocol version number
-PN7150_UART_MSG_DATA_VER_PROTOCOL          = 0x80
-## SDK version number
-PN7150_UART_MSG_DATA_VER_SDK               = 0x81
-## ASR component version number
-PN7150_UART_MSG_DATA_VER_ASR               = 0x82
-## Audio pre-processing algorithm version number
-PN7150_UART_MSG_DATA_VER_PREPROCESS        = 0x83
-## Player version number
-PN7150_UART_MSG_DATA_VER_PLAYER            = 0x84
-## App version number
-PN7150_UART_MSG_DATA_VER_APP               = 0x8A
-# msg_data  msg_cmd:PN7150_UART_MSG_CMD_NOTIFY_STATUS
-PN7150_UART_MSG_DATA_NOTIFY_POWERON        = 0xB0
-PN7150_UART_MSG_DATA_NOTIFY_WAKEUPENTER    = 0xB1
-PN7150_UART_MSG_DATA_NOTIFY_WAKEUPEXIT     = 0xB2
-PN7150_UART_MSG_DATA_NOTIFY_PLAYSTART      = 0xB3
-PN7150_UART_MSG_DATA_NOTIFY_PLAYEND        = 0xB4
-# msg_data msg_cmd:PN7150_UART_MSG_CMD_SET_CONFIG
-PN7150_UART_MSG_CMD_SET_VOLUME             = 0x80
-PN7150_UART_MSG_CMD_SET_ENTERWAKEUP        = 0x81
-PN7150_UART_MSG_CMD_SET_PRT_MID_RST        = 0x82
-PN7150_UART_MSG_CMD_SET_MUTE               = 0x83
-PN7150_UART_MSG_CMD_SET_WAKE_TIME          = 0x84
-PN7150_UART_MSG_CMD_SET_NEEDACK            = 0x90
-PN7150_UART_MSG_CMD_SET_NEEDSTRING         = 0x91
-# ACK error code
-PN7150_UART_MSG_ACK_ERR_NONE               = 0x00
-PN7150_UART_MSG_ACK_ERR_CHECKSUM           = 0xff
-PN7150_UART_MSG_ACK_ERR_NOSUPPORT          = 0xfe
+
+def status(val: int):
+    """Function for status"""
+    return _status.get(val, None) or "0x{:02x}".format(val)
+
+
+# pylint: disable=too-many-branches
+def dump_package(buf: bytes, end: int, prefix: str = ""):
+    """Function dump_package."""
+    fst, snd = buf[0], buf[1]
+    if fst & 0xE0 == 0:
+        print(
+            "{}Data packet to/from {} length {}".format(prefix, buf[0] & 0x0F, buf[2])
+        )
+    elif fst == 0x20 and snd == 0x00:
+        print(
+            "{}CORE_RESET_CMD({}) Reset Configuration: {}".format(prefix, end, buf[3])
+        )
+    elif fst == 0x40 and snd == 0x00:
+        # pylint: disable=line-too-long
+        print(
+            "{}CORE_RESET_RSP({}) Status: {} NCI Version: 0x{:02x} Configuration Status: 0x{:02x}".format(
+                prefix, end, status(buf[3]), buf[4], buf[5]
+            )
+        )
+    elif fst == 0x20 and snd == 0x01:
+        print("{}CORE_INIT_CMD({})".format(prefix, end))
+    elif fst == 0x40 and snd == 0x01:
+        # 3    Status
+        # 4    NFCC Features
+        #      ..
+        # 8    #RF Interfaces
+        #      RF Interfaces
+        # 9+n  Max Logical Connections
+        # 10+n Max Routing Table
+        #      ..
+        # 12+n Max Control Packet Payload Size
+        # 13+n Max Size for Large Parameters
+        #      ..
+        # 15+n Manufacturer ID
+        # 16+n Manufacturer Specific Information
+        n = buf[8]
+        print(
+            "{}CORE_INIT_RSP({}) Status: {} #RF Interfaces: {} Max Payload Size: {}".format(
+                prefix, end, status(buf[3]), n, buf[12 + n]
+            )
+        )
+    elif fst == 0x60 and snd == 0x06:
+        print("{}CORE_CONN_CREDITS_NTF({}) #Entries: {}".format(prefix, end, buf[3]))
+    elif fst == 0x60 and snd == 0x07:
+        print(
+            "{}CORE_GENERIC_ERROR_NTF({}) Status: {}".format(
+                prefix, end, status(buf[3])
+            )
+        )
+    elif fst == 0x60 and snd == 0x08:
+        print(
+            "{}CORE_INTERFACE_ERROR_NTF({}) Status: {} ConnID: {}".format(
+                prefix, end, status(buf[3]), buf[4]
+            )
+        )
+    elif fst == 0x21 and snd == 0x00:
+        print(
+            "{}RF_DISCOVER_MAP_CMD({}) #Mapping Configurations: {}".format(
+                prefix, end, buf[3]
+            )
+        )
+    elif fst == 0x41 and snd == 0x00:
+        print(
+            "{}RF_DISCOVER_MAP_RSP({}) Status: {}".format(prefix, end, status(buf[3]))
+        )
+    elif fst == 0x21 and snd == 0x03:
+        print("{}RF_DISCOVER_CMD({}) #Configurations: {}".format(prefix, end, buf[3]))
+    elif fst == 0x41 and snd == 0x03:
+        print("{}RF_DISCOVER_RSP({}) Status: {}".format(prefix, end, status(buf[3])))
+    elif fst == 0x21 and snd == 0x06:
+        print("{}RF_DEACTIVATE_CMD({}) Mode: {}".format(prefix, end, buf[3]))
+    elif fst == 0x41 and snd == 0x06:
+        print("{}RF_DEACTIVATE_RSP({}) Status: {}".format(prefix, end, status(buf[3])))
+    elif fst == 0x61 and snd == 0x06:
+        print(
+            "{}RF_DEACTIVATE_NTF({}) Type: {} Reason: {}".format(
+                prefix, end, buf[3], buf[4]
+            )
+        )
+    elif fst == 0x61 and snd == 0x05:
+        # 3    RF Discovery ID
+        # 4    RF Interface
+        # 5    RF Protocol
+        # 6    Activation RF Technology and Mode
+        # 7    Max Data Packet Payload Size
+        # 8    Initial Number of Credits
+        # 9    #RF Technology Specific Parameters
+        #      RF Technology Specific Parameters
+        # 10+n Data Exchange RF Technology and Mode
+        # 11+n Data Exchange Transmit Bit Rate
+        # 12+n Data Exchange Receive Bit Rate
+        # 13+n #Activation Parameters
+        #      Activation Parameters
+        print(
+            "{}RF_INTF_ACTIVATED_NTF({}) ID: {} Interface: {} Protocol: {} Mode: 0x{:02x} #RFparams: {}".format(
+                prefix, end, buf[3], buf[4], buf[5], buf[6], buf[9]
+            )
+        )
+    elif fst == 0x2F and snd == 0x02:
+        print("{}PROPRIETARY_ACT_CMD({})".format(prefix, end))
+    elif fst == 0x4F and snd == 0x02:
+        print(
+            "{}PROPRIETARY_ACT_RSP({}) Status: {}".format(prefix, end, status(buf[3]))
+        )
+    else:
+        print("{}{:02x}:{:02x} {} bytes".format(prefix, buf[0], buf[1], end))
+
+
+# MT=1 GID=0 OID=0 PL=1 ResetType=1 (Reset Configuration)
+NCI_CORE_RESET_CMD = b"\x20\x00\x01\x01"
+# MT=1 GID=0 OID=1 PL=0
+NCI_CORE_INIT_CMD = b"\x20\x01\x00"
+# MT=1 GID=f OID=2 PL=0
+NCI_PROP_ACT_CMD = b"\x2f\x02\x00"
+# MT=1 GID=1 OID=0
+NCI_RF_DISCOVER_MAP_RW = (
+    b"\x21\x00\x10\x05\x01\x01\x01\x02\x01\x01\x03\x01\x01\x04\x01\x02\x80\x01\x80"
+)
+# MT=1 GID=1 OID=3
+NCI_RF_DISCOVER_CMD_RW = b"\x21\x03\x09\x04\x00\x01\x02\x01\x01\x01\x06\x01"
+# MODE_POLL | TECH_PASSIVE_NFCA,
+# MODE_POLL | TECH_PASSIVE_NFCF,
+# MODE_POLL | TECH_PASSIVE_NFCB,
+# MODE_POLL | TECH_PASSIVE_15693,
+NCI_RF_DEACTIVATE_CMD = b"\x21\x06\x01\x00"
+
+
+class Card:
+    """Class card."""
+
+    def __init__(self, buf: bytearray, end: int):
+        self.card_id = buf[3]
+        self.interface = buf[4]
+        self.protocol = buf[5]
+        self.modetech = buf[6]
+        self.maxpayload = buf[7]
+        self.credits = buf[8]
+        self.nrfparams = buf[9]
+        self.rest = buf[10:end]
+
+    def nfcid1(self) -> str:
+        """Function decode NFCID1 of rfts for NFC_A_PASSIVE_POLL_MODE"""
+        if self.modetech != 0x00:
+            return None
+
+        id_length = self.rest[2]
+
+        return ":".join("{:02x}".format(x) for x in self.rest[3 : 3 + id_length])
+
+
+# class DFRobot_PN7150(object):
+#   '''!
+#     @brief Define DFRobot_PN7150 basic class
+#   '''
+
+#   def __init__(self):
+#     '''!
+#       @brief Module init
+#     '''
+#     pass
+
+#   def get_CMDID(self):
+#     '''!
+#       @brief Get the ID corresponding to the command word
+#       @return Return the obtained command word ID, returning 0 means no valid ID is obtained
+#     '''
+#     time.sleep(0.05)   # Prevent the access rate from interfering with other functions of the voice module
+#     return self._read_reg(PN7150_I2C_REG_CMDID)
+
+#   def play_by_CMDID(self, CMDID):
+#     '''!
+#       @brief Play the corresponding reply audio according to the command word ID
+#       @param CMDID - Command word ID
+#       @note Can enter wake-up state through ID-1 in I2C mode
+#     '''
+#     self._write_reg(PN7150_I2C_REG_PLAY_CMDID, CMDID)
+#     time.sleep(1)
+
+#   def _write_reg(self, reg, data):
+#       '''!
+#         @brief writes data to a register
+#         @param reg register address
+#         @param data written data
+#       '''
+#       # Low level register writing, not implemented in base class
+#       raise NotImplementedError()
+
+#   def _read_reg(self, reg, length):
+#       '''!
+#         @brief read the data from the register
+#         @param reg register address
+#         @param length read data length
+#         @return read data list
+#       '''
+#       # Low level register writing, not implemented in base class
+#       raise NotImplementedError()
 
 
 class DFRobot_PN7150(object):
-  '''!
-    @brief Define DFRobot_PN7150 basic class
-  '''
-
-  def __init__(self):
-    '''!
-      @brief Module init
-    '''
-    pass
-
-
-class DFRobot_PN7150_I2C(DFRobot_PN7150):
-  '''!
+    """!
     @brief Define DFRobot_PN7150_I2C basic class
-  '''
+    """
 
-  def __init__(self, i2c_addr=PN7150_I2C_ADDR, bus=1):
-    '''!
-      @brief Module I2C communication init
-      @param i2c_addr - I2C communication address
-      @param bus - I2C bus
-    '''
-    self._addr = i2c_addr
-    self._i2c = smbus.SMBus(bus)
-    super(DFRobot_PN7150_I2C, self).__init__()
+    def __init__(self, i2c_addr=PN7150_I2C_ADDR, bus=1):
+        """!
+        @brief Module I2C communication init
+        @param i2c_addr - I2C communication address
+        @param bus - I2C bus
+        """
+        self._addr = i2c_addr
+        # self._i2c = smbus.SMBus(bus)
+        self._debug = False
+        self._buf = bytearray(3 + 255)
+        self.fw_version = self._buf[64]
+        self.i2c = LinuxI2C(bus)
+        # print(self.i2c.scan())
+        # self._cs = cs
+        # GPIO.setmode(GPIO.BCM)
+        # GPIO.setwarnings(False)
+        # GPIO.setup(self._cs, GPIO.IN, initial=1)
+        # super(DFRobot_PN7150_I2C, self).__init__()
 
-  def get_CMDID(self):
-    '''!
-      @brief Get the ID corresponding to the command word
-      @return Return the obtained command word ID, returning 0 means no valid ID is obtained
-    '''
-    time.sleep(0.05)   # Prevent the access rate from interfering with other functions of the voice module
-    return self._read_reg(PN7150_I2C_REG_CMDID)
+    def off(self):
+        """Function off."""
+        # self._ven.value = 0
 
-  def play_by_CMDID(self, CMDID):
-    '''!
-      @brief Play the corresponding reply audio according to the command word ID
-      @param CMDID - Command word ID
-      @note Can enter wake-up state through ID-1 in I2C mode
-    '''
-    self._write_reg(PN7150_I2C_REG_PLAY_CMDID, CMDID)
-    time.sleep(1)
+    def reset(self):
+        """Function reset."""
+        # self._ven.value = 0
+        time.sleep(0.001)
+        # self._ven.value = 1
+        time.sleep(0.003)
 
-  def get_wake_time(self):
-    '''!
-      @brief Get the wake-up duration
-      @return The current set wake-up period
-    '''
-    return self._read_reg(PN7150_I2C_REG_WAKE_TIME)
+    def _connect(self):
+        """Function connect."""
+        self.reset()
+        self._write_block(NCI_CORE_RESET_CMD)
+        end = self._read_wait(15)
+        if (
+            end < 6
+            or self._buf[0] != 0x40
+            or self._buf[1] != 0x00
+            or self._buf[3] != _STATUS_OK
+            or self._buf[5] != 0x01
+        ):
+            return False
+        self._write_block(NCI_CORE_INIT_CMD)
+        end = self._read_wait()
+        if (
+            end < 20
+            or self._buf[0] != 0x40
+            or self._buf[1] != 0x01
+            or self._buf[3] != _STATUS_OK
+        ):
+            return False
 
-  def set_wake_time(self, wake_time):
-    '''!
-      @brief Set wake-up duration
-      @param wakeTime - Wake-up duration(0-255)
-    '''
-    wake_time = wake_time & 0xFF
-    self._write_reg(PN7150_I2C_REG_WAKE_TIME, wake_time)
+        nrf_int = self._buf[8]
+        self.fw_version = self._buf[17 + nrf_int : 20 + nrf_int]
+        # print("Firmware version: 0x{:02x} 0x{:02x} 0x{:02x}".format(
+        #    self.fw_version[0], self.fw_version[1], self.fw_version[2]))
 
-  def set_volume(self, vol):
-    '''!
-      @brief Set voice volume
-      @param vol - Volume value(1~7)
-    '''
-    # if (vol < 0):
-    #   vol = 0
-    # elif (vol > 20):
-    #   vol = 20
-    self._write_reg(PN7150_I2C_REG_SET_VOLUME, vol)
+        self._write_block(NCI_PROP_ACT_CMD)
+        end = self._read_wait()
+        if (
+            end < 4
+            or self._buf[0] != 0x4F
+            or self._buf[1] != 0x02
+            or self._buf[3] != _STATUS_OK
+        ):
+            return False
 
-  def set_mute_mode(self, mode):
-    '''!
-      @brief Set mute mode
-      @param mode - Mute mode; set value 1: mute, 0: unmute
-    '''
-    if (0 != mode):
-      mode = 1
-    self._write_reg(PN7150_I2C_REG_SET_MUTE, mode)
+        # print("FW_Build_Number:", self._buf[4:8])
 
-  def _write_reg(self, reg, data):
-    '''!
-      @brief writes data to a register
-      @param reg - register address
-      @param data - written data
-    '''
-    if isinstance(data, int):
-      data = [data]
-      #logger.info(data)
-    self._i2c.write_i2c_block_data(self._addr, reg, data)
+        return True
 
-  def _read_reg(self, reg):
-    '''!
-      @brief read the data from the register
-      @param reg - register address
-      @return read data
-    '''
-    data = self._i2c.read_i2c_block_data(self._addr, reg, 1)
-    return data[0]
+    def connect(self):
+        """Function connect."""
+        # assert self._i2c.try_lock()
+        # try:
+        ok = self._connect()
+        # finally:
+        #     # self._i2c.unlock()
+        #     print("finally connect")
+        return ok
 
+    def mode_rw(self):
+        """Function mode Read/Write."""
+        # assert self._i2c.try_lock()
+        self._write_block(NCI_RF_DISCOVER_MAP_RW)
+        end = self._read_wait(10)
+        # self._i2c.unlock()
+        return (
+            end >= 4
+            and self._buf[0] == 0x41
+            and self._buf[1] == 0x00
+            and self._buf[3] == _STATUS_OK
+        )
 
-class DFRobot_PN7150_UART(DFRobot_PN7150):
-  '''!
-    @brief Define DFRobot_PN7150_UART basic class
-  '''
+    def start_discovery_rw(self):
+        """Function Start Discovery Read/Write."""
+        # assert self._i2c.try_lock()
+        self._write_block(NCI_RF_DISCOVER_CMD_RW)
+        end = self._read_wait()
+        # self._i2c.unlock()
+        return (
+            end >= 4
+            and self._buf[0] == 0x41
+            and self._buf[1] == 0x03
+            and self._buf[3] == _STATUS_OK
+        )
 
-  REV_STATE_HEAD0   = 0x00
-  REV_STATE_HEAD1   = 0x01
-  REV_STATE_LENGTH0 = 0x02
-  REV_STATE_LENGTH1 = 0x03
-  REV_STATE_TYPE    = 0x04
-  REV_STATE_CMD     = 0x05
-  REV_STATE_SEQ     = 0x06
-  REV_STATE_DATA    = 0x07
-  REV_STATE_CKSUM0  = 0x08
-  REV_STATE_CKSUM1  = 0x09
-  REV_STATE_TAIL    = 0x0a
+    def stop_discovery(self):
+        """Function stop Discovery."""
+        # assert self._i2c.try_lock()
+        self._write_block(NCI_RF_DEACTIVATE_CMD)
+        end = self._read_wait()
+        # self._i2c.unlock()
+        return (
+            end >= 4
+            and self._buf[0] == 0x41
+            and self._buf[1] == 0x06
+            and self._buf[3] == _STATUS_OK
+        )
 
-  class uart_msg():
-    '''!
-      @brief Class for serial data frame struct
-    '''
-    def __init__(self):
-      '''!
-        @brief sensor_status structure init
-      '''
-      self.header = 0
-      self.data_length = 0
-      self.msg_type = 0
-      self.msg_cmd = 0
-      self.msg_seq = 0
-      self.msg_data = [0] * 8
+    def wait_for_card(self):
+        """Function wait for Card."""
+        # assert self._i2c.try_lock()
+        while True:
+            end = 0
+            while end == 0:
+                end = self._read_wait()
+            if self._buf[0] == 0x61 and self._buf[1] == 0x05:
+                break
+        # self._i2c.unlock()
 
-  def __init__(self):
-    '''!
-      @brief Module UART communication init
-    '''
-    self.uart_cmd_ID = 0
-    self._send_sequence = 0
-    self._ser = serial.Serial("/dev/ttyAMA0", baudrate=PN7150_UART_BAUDRATE, bytesize=8, parity='N', stopbits=1, timeout=0.5)
-    if self._ser.isOpen == False:
-      self._ser.open()
-    super(DFRobot_PN7150_UART, self).__init__()
+        return Card(self._buf, end)
 
-  def get_CMDID(self):
-    '''!
-      @brief Get the ID corresponding to the command word 
-      @return Return the obtained command word ID, returning 0 means no valid ID is obtained
-    '''
-    self._recv_packet()
-    temp = self.uart_cmd_ID
-    self.uart_cmd_ID = 0
-    return temp
+    def tag_cmd(self, cmd: bytes, conn_id: int = 0):
+        """Function tag cmd."""
+        # assert self._i2c.try_lock()
+        self._buf[0] = conn_id
+        self._buf[1] = 0x00
+        self._buf[2] = len(cmd)
+        end = 3 + len(cmd)
+        self._buf[3:end] = cmd
+        self._write_block(self._buf, end=end)
 
-  def play_by_CMDID(self, play_id):
-    '''!
-      @brief Play the corresponding reply audio according to the command word ID
-      @param CMDID - Command word ID
-    '''
-    msg = self.uart_msg()
-    msg.header = PN7150_UART_MSG_HEAD
-    msg.data_length = 6
-    msg.msg_type = PN7150_UART_MSG_TYPE_CMD_DOWN
-    msg.msg_cmd = PN7150_UART_MSG_CMD_PLAY_VOICE
-    msg.msg_seq = self._send_sequence
-    self._send_sequence += 1
-    msg.msg_data[0] = PN7150_UART_MSG_DATA_PLAY_START
-    msg.msg_data[1] = PN7150_UART_MSG_DATA_PLAY_BY_CMD_ID
-    msg.msg_data[2] = play_id
+        while True:
+            end = self._read_wait()
+            if self._buf[0] & 0xE0 == 0x00:
+                break
 
-    self._send_packet(msg)
-    time.sleep(1)
+        # self._i2c.unlock()
+        return self._buf[3:end]
 
-  def reset_module(self):
-    '''!
-      @brief Reset the module
-    '''
-    msg = self.uart_msg()
-    msg.header = PN7150_UART_MSG_HEAD
-    msg.data_length = 5
-    msg.msg_type = PN7150_UART_MSG_TYPE_CMD_DOWN
-    msg.msg_cmd = PN7150_UART_MSG_CMD_RESET_MODULE
-    msg.msg_seq = self._send_sequence
-    self._send_sequence += 1
-    msg.msg_data[0] = 'r'
-    msg.msg_data[1] = 'e'
-    msg.msg_data[2] = 's'
-    msg.msg_data[3] = 'e'
-    msg.msg_data[4] = 't'
+    def _read_wait(self, timeout: int = 5):
+        """!
+        @brief read the data from the register
+        @param timeout - timeout
+        @return read data
+        """
+        base = time.time() * 1000
+        # while self._irq.value == 0:
+        #     if (base + time.time()) % _TICKS_PERIOD >= timeout:
+        #         return 0
+        while 1:
+            count = self._read_block()
+            # print((time.time() * 1000 - base))
+            if 3 < count:
+                return count
+            time.sleep(0.01)
+        return 0
 
-    self._send_packet(msg)
-    time.sleep(3)
+    def _read_block(self, cmd: int = 0):
+        """!
+        @brief read the data from the register
+        @param cmd - register address
+        @return read data
+        """
+        end = 0
+        try:
+            # self._buf = self._i2c.read_i2c_block_data(self._addr, cmd, 3)
+            self._buf = self.i2c.readfrom(self._addr, 3)
+            end = 3
+            if self._buf[2] > 0:
+                # self._buf[3:] = self._i2c.read_i2c_block_data(self._addr, cmd, end)
+                self._buf[3:] = self.i2c.readfrom(self._addr, self._buf[2])
+                end = 3 + self._buf[2]
+        # except:
+        #     pass
+        except IOError as e:
+            # 捕获 IOError 异常
+            # print(f"I/O error: {e}")
+            # 可以添加其他处理逻辑，例如重试或记录错误信息
+            pass
 
-  def setting_CMD(self, set_type, set_value):
-    '''!
-      @brief Set commands of the module
-      @param set_type - Set type
-      @n       PN7150_UART_MSG_CMD_SET_VOLUME : Set volume, the set value range 1-7
-      @n       PN7150_UART_MSG_CMD_SET_ENTERWAKEUP : Enter wake-up state; set value 0
-      @n       PN7150_UART_MSG_CMD_SET_MUTE : Mute mode; set value 1: mute, 0: unmute
-      @n       PN7150_UART_MSG_CMD_SET_WAKE_TIME : Wake-up duration; the set value range 0-255s
-      @param set_value - Set value, refer to the set type above for the range
-    '''
-    msg = self.uart_msg()
-    msg.header = PN7150_UART_MSG_HEAD
-    msg.data_length = 5
-    msg.msg_type = PN7150_UART_MSG_TYPE_CMD_DOWN
-    msg.msg_cmd = PN7150_UART_MSG_CMD_SET_CONFIG
-    msg.msg_seq = self._send_sequence
-    self._send_sequence += 1
-    msg.msg_data[0] = set_type
-    msg.msg_data[1] = set_value
+        except Exception as e:
+            # 捕获其他异常
+            print(f"An unexpected error occurred: {e}")
+        if self._debug:
+            dump_package(self._buf, end, prefix="< ")
+        return end
 
-    self._send_packet(msg)
+    def _write_block(self, cmd, end: int = 0):
+        """!
+        @brief writes data to a register
+        @param cmd - written data
+        @param end - data len
+        """
+        # while self._irq.value == 1:
+        #     self.__read()
+        # self._read_wait()
+        if not end:
+            end = len(cmd)
+        if self._debug:
+            dump_package(cmd, end, prefix="> ")
+        try:
+            # if end == 1:
+            #     self._i2c.write_byte_data(self._addr, cmd[0])
+            # else:
+            #     self._i2c.write_i2c_block_data(self._addr, cmd[0], list(cmd[1:end]))
+            # self.i2c.writeto(self._addr, list(cmd))
+            self.i2c.writeto(self._addr, list(cmd[0:end]))
+            # while 1:
+            #     pass
 
-  def _send_packet(self, msg):
-    '''
-      @brief Write data through UART
-      @param msg - Data packet to be sent
-    '''
-    chk_sum = 0x0000
-    data = []
-    data.append(msg.header & 0xFF)
-    data.append((msg.header >> 8) & 0xFF)
-    data.append(msg.data_length & 0xFF)
-    data.append((msg.data_length >> 8) & 0xFF)
-    data.append(msg.msg_type & 0xFF)
-    chk_sum += msg.msg_type
-    data.append(msg.msg_cmd & 0xFF)
-    chk_sum += msg.msg_cmd
-    data.append(msg.msg_seq & 0xFF)
-    chk_sum += msg.msg_seq
-    for i in range(0, msg.data_length):
-      data.append(msg.msg_data[i] & 0xFF)
-      chk_sum += msg.msg_data[i]
-    data.append(chk_sum & 0xFF)
-    data.append((chk_sum >> 8) & 0xFF)
-    data.append(PN7150_UART_MSG_TAIL & 0xFF)
-    logger.info(data)
-    self._ser.write(data)
-    time.sleep(0.1)
-
-  def _recv_packet(self):
-    '''
-      @brief Read data through UART
-      @param msg - Buffer for receiving data packet
-    '''
-    msg = self.uart_msg()
-    rev_state = self.REV_STATE_HEAD0
-    receive_char = 0
-    chk_sum = 0
-    data_rev_count = 0
-    while self._ser.in_waiting:
-      receive_char = ord(self._ser.read(1))
-      if(self.REV_STATE_HEAD0 == rev_state):
-        if(PN7150_UART_MSG_HEAD_LOW == receive_char):
-          rev_state = self.REV_STATE_HEAD1
-      elif(self.REV_STATE_HEAD1 == rev_state):
-        if(PN7150_UART_MSG_HEAD_HIGH == receive_char):
-          rev_state = self.REV_STATE_LENGTH0
-          msg.header = PN7150_UART_MSG_HEAD
-        else:
-          rev_state = self.REV_STATE_HEAD0
-      elif(self.REV_STATE_LENGTH0 == rev_state):
-        msg.data_length = receive_char
-        rev_state = self.REV_STATE_LENGTH1
-      elif(self.REV_STATE_LENGTH1 == rev_state):
-        msg.data_length += receive_char << 8
-        rev_state = self.REV_STATE_TYPE
-      elif(self.REV_STATE_TYPE == rev_state):
-        msg.msg_type = receive_char
-        rev_state = self.REV_STATE_CMD
-      elif(self.REV_STATE_CMD == rev_state):
-        msg.msg_cmd = receive_char
-        rev_state = self.REV_STATE_SEQ
-      elif(self.REV_STATE_SEQ == rev_state):
-        msg.msg_seq = receive_char
-        rev_state = rev_state
-        if(msg.data_length > 0):
-          rev_state = self.REV_STATE_DATA
-          data_rev_count = 0
-        else:
-          rev_state = self.REV_STATE_CKSUM0
-      elif(self.REV_STATE_DATA == rev_state):
-        msg.msg_data[data_rev_count] = receive_char
-        data_rev_count += 1
-        if(msg.data_length == data_rev_count):
-          rev_state = self.REV_STATE_CKSUM0
-      elif(self.REV_STATE_CKSUM0 == rev_state):
-        chk_sum = receive_char
-        rev_state = self.REV_STATE_CKSUM1
-      elif(self.REV_STATE_CKSUM1 == rev_state):
-        chk_sum += receive_char << 8
-
-        rev_state = self.REV_STATE_TAIL
-      elif(self.REV_STATE_TAIL == rev_state):
-        if(PN7150_UART_MSG_TAIL == receive_char):
-          if(PN7150_UART_MSG_TYPE_CMD_UP == msg.msg_type):
-            self.uart_cmd_ID = msg.msg_data[0]
-        else:
-          data_rev_count = 0
-        rev_state = self.REV_STATE_HEAD0
-      else:
-        rev_state = self.REV_STATE_HEAD0
-
-    return data_rev_count
+        except IOError as e:
+            # 捕获 IOError 异常
+            print(f"I/O error: {e}")
+            self._write_block(cmd)
+        # if isinstance(data, int):
+        #   data = [data]
+        #   #logger.info(data)
+        # self._i2c.write_i2c_block_data(self._addr, reg, data)
