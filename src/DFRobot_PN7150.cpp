@@ -21,23 +21,9 @@ extern "C" {
 }
 #endif
 
-
 #include <Nfc_settings.h>
 
-#ifdef NCI_DEBUG
-unsigned short debug_loop;
-#endif
-
-#define MAX_NCI_FRAME_SIZE    258
-
-static bool gRfSettingsRestored_flag = false;
-static uint8_t gNfcController_generation = 0;
-static uint8_t gNfcController_fw_version[3] = { 0 };
-static uint8_t gNextTag_Protocol = PROT_UNDETERMINED;
-
-static uint8_t NCIStartDiscovery[30];
-static uint8_t NCIStartDiscovery_length = 0;
-
+#if 0
 /* Discovery loop configuration according to the targeted modes of operation */
 unsigned char DiscoveryTechnologies[] = {
 #if defined P2P_SUPPORT || defined RW_SUPPORT
@@ -67,17 +53,32 @@ unsigned char DiscoveryTechnologies[] = {
 };
 
 /* Mode configuration according to the targeted modes of operation */
-unsigned mode = 0
+unsigned char mode = 0
 #ifdef CARDEMU_SUPPORT
 | NXPNCI_MODE_CARDEMU
-#endif // ifdef P2P_SUPPORT
+#endif // ifdef CARDEMU_SUPPORT
 #ifdef P2P_SUPPORT
 | NXPNCI_MODE_P2P
-#endif // ifdef CARDEMU_SUPPORT
+#endif // ifdef P2P_SUPPORT
 #ifdef RW_SUPPORT
 | NXPNCI_MODE_RW
 #endif // ifdef RW_SUPPORT
 ;
+#endif
+
+#ifdef NCI_DEBUG
+unsigned short debug_loop;
+#endif
+
+#define MAX_NCI_FRAME_SIZE    258
+
+static bool gRfSettingsRestored_flag = false;
+static uint8_t gNfcController_generation = 0;
+static uint8_t gNfcController_fw_version[3] = { 0 };
+static uint8_t gNextTag_Protocol = PROT_UNDETERMINED;
+
+static uint8_t NCIStartDiscovery[30];
+static uint8_t NCIStartDiscovery_length = 0;
 
 DFRobot_PN7150::DFRobot_PN7150()
 {
@@ -765,7 +766,7 @@ bool DFRobot_PN7150::NxpNci_ConfigureSettings(void)
     return NXPNCI_SUCCESS;
 }
 
-bool DFRobot_PN7150::NxpNci_ConfigureMode(unsigned char mode)
+bool DFRobot_PN7150::NxpNci_ConfigureMode(void)
 {
 #if defined RW_SUPPORT || defined P2P_SUPPORT || defined CARDEMU_SUPPORT
     uint8_t Command[MAX_NCI_FRAME_SIZE];
@@ -792,11 +793,11 @@ bool DFRobot_PN7150::NxpNci_ConfigureMode(unsigned char mode)
     uint8_t NCISetConfig_NFCA_SELRSP[] = { 0x20, 0x02, 0x04, 0x01, 0x32, 0x01, 0x00 };
 #endif
 
-    if (mode == 0) return NXPNCI_SUCCESS;
+    if (_mode == 0) return NXPNCI_SUCCESS;
 
     /* Enable Proprietary interface for T4T card presence check procedure */
 #ifdef RW_SUPPORT
-    if (mode == NXPNCI_MODE_RW) {
+    if (_mode == NXPNCI_MODE_RW) {
         NxpNci_HostTransceive(NCIPropAct, sizeof(NCIPropAct), Answer, sizeof(Answer), &AnswerSize);
         if ((Answer[0] != 0x4F) || (Answer[1] != 0x02) || (Answer[3] != 0x00)) return NXPNCI_ERROR;
     }
@@ -805,19 +806,19 @@ bool DFRobot_PN7150::NxpNci_ConfigureMode(unsigned char mode)
     /* Building Discovery Map command */
     Item = 0;
 #ifdef CARDEMU_SUPPORT
-    if (mode & NXPNCI_MODE_CARDEMU) {
+    if (_mode & NXPNCI_MODE_CARDEMU) {
         memcpy(&Command[4 + (3 * Item)], DM_CARDEMU, sizeof(DM_CARDEMU));
         Item++;
     }
 #endif
 #ifdef P2P_SUPPORT
-    if (mode & NXPNCI_MODE_P2P) {
+    if (_mode & NXPNCI_MODE_P2P) {
         memcpy(&Command[4 + (3 * Item)], DM_P2P, sizeof(DM_P2P));
         Item++;
     }
 #endif
 #ifdef RW_SUPPORT
-    if (mode & NXPNCI_MODE_RW) {
+    if (_mode & NXPNCI_MODE_RW) {
         memcpy(&Command[4 + (3 * Item)], DM_RW, sizeof(DM_RW));
         Item += sizeof(DM_RW) / 3;
     }
@@ -835,48 +836,52 @@ bool DFRobot_PN7150::NxpNci_ConfigureMode(unsigned char mode)
     /* Configuring routing */
     Item = 0;
 #ifdef CARDEMU_SUPPORT
-    if (mode & NXPNCI_MODE_CARDEMU) {
+    if (_mode & NXPNCI_MODE_CARDEMU) {
         memcpy(&Command[5 + (5 * Item)], R_CARDEMU, sizeof(R_CARDEMU));
         Item++;
     }
 #endif
 #ifdef P2P_SUPPORT
-    if (mode & NXPNCI_MODE_P2P) {
+    if (_mode & NXPNCI_MODE_P2P) {
         memcpy(&Command[5 + (5 * Item)], R_P2P, sizeof(R_P2P));
         Item++;
     }
 #endif
 #if defined P2P_SUPPORT || defined CARDEMU_SUPPORT
-    if (Item != 0) {
-        memcpy(Command, NCIRouting, sizeof(NCIRouting));
-        Command[2] = 2 + (Item * 5);
-        Command[4] = Item;
-        NxpNci_HostTransceive(Command, 3 + Command[2], Answer, sizeof(Answer), &AnswerSize);
-        if ((Answer[0] != 0x41) || (Answer[1] != 0x01) || (Answer[3] != 0x00)) return NXPNCI_ERROR;
+    if (_mode & (NXPNCI_MODE_P2P | NXPNCI_MODE_CARDEMU)) {
+        if (Item != 0) {
+            memcpy(Command, NCIRouting, sizeof(NCIRouting));
+            Command[2] = 2 + (Item * 5);
+            Command[4] = Item;
+            NxpNci_HostTransceive(Command, 3 + Command[2], Answer, sizeof(Answer), &AnswerSize);
+            if ((Answer[0] != 0x41) || (Answer[1] != 0x01) || (Answer[3] != 0x00)) return NXPNCI_ERROR;
+        }
     }
 #endif
 
     /* Setting NFCA SEL_RSP */
 #ifdef CARDEMU_SUPPORT
-    if (mode & NXPNCI_MODE_CARDEMU) {
+    if (_mode & NXPNCI_MODE_CARDEMU) {
         NCISetConfig_NFCA_SELRSP[6] += 0x20;
     }
 #endif
 #ifdef P2P_SUPPORT
-    if (mode & NXPNCI_MODE_P2P) {
+    if (_mode & NXPNCI_MODE_P2P) {
         NCISetConfig_NFCA_SELRSP[6] += 0x40;
     }
 #endif
 #if defined P2P_SUPPORT || defined CARDEMU_SUPPORT
-    if (NCISetConfig_NFCA_SELRSP[6] != 0x00) {
-        NxpNci_HostTransceive(NCISetConfig_NFCA_SELRSP, sizeof(NCISetConfig_NFCA_SELRSP), Answer, sizeof(Answer), &AnswerSize);
-        if ((Answer[0] != 0x40) || (Answer[1] != 0x02) || (Answer[3] != 0x00)) return NXPNCI_ERROR;
+    if (_mode & (NXPNCI_MODE_P2P | NXPNCI_MODE_CARDEMU)) {
+        if (NCISetConfig_NFCA_SELRSP[6] != 0x00) {
+            NxpNci_HostTransceive(NCISetConfig_NFCA_SELRSP, sizeof(NCISetConfig_NFCA_SELRSP), Answer, sizeof(Answer), &AnswerSize);
+            if ((Answer[0] != 0x40) || (Answer[1] != 0x02) || (Answer[3] != 0x00)) return NXPNCI_ERROR;
+        }
     }
 #endif
 
     /* Setting LLCP support */
 #ifdef P2P_SUPPORT
-    if (mode & NXPNCI_MODE_P2P) {
+    if (_mode & NXPNCI_MODE_P2P) {
         NxpNci_HostTransceive(NCISetConfig_NFC, sizeof(NCISetConfig_NFC), Answer, sizeof(Answer), &AnswerSize);
         if ((Answer[0] != 0x40) || (Answer[1] != 0x02) || (Answer[3] != 0x00)) return NXPNCI_ERROR;
     }
@@ -896,10 +901,8 @@ bool DFRobot_PN7150::NxpNci_ConfigureParams(unsigned char* pCmd, unsigned short 
     return NXPNCI_SUCCESS;
 }
 
-bool DFRobot_PN7150::NxpNci_StartDiscovery(void)
+bool DFRobot_PN7150::NxpNci_StartDiscovery(unsigned char* pTechTab, unsigned char TechTabSize)
 {
-    unsigned char* pTechTab = DiscoveryTechnologies;
-    unsigned char TechTabSize = sizeof(DiscoveryTechnologies);
     uint8_t Answer[MAX_NCI_FRAME_SIZE];
     uint16_t AnswerSize;
     uint8_t i;
@@ -960,7 +963,7 @@ wait:
 
 #ifdef P2P_SUPPORT
         /* Verifying if not a P2P device also presenting T4T emulation */
-        if ((pRfIntf->Interface == INTF_ISODEP) && (pRfIntf->Protocol == PROT_ISODEP) && ((pRfIntf->ModeTech & MODE_LISTEN) != MODE_LISTEN)) {
+        if ((_mode & NXPNCI_MODE_P2P) && (pRfIntf->Interface == INTF_ISODEP) && (pRfIntf->Protocol == PROT_ISODEP) && ((pRfIntf->ModeTech & MODE_LISTEN) != MODE_LISTEN)) {
             memcpy(saved_NTF, Answer, sizeof(saved_NTF));
             while (1) {
                 /* Restart the discovery loop */
@@ -1029,7 +1032,7 @@ wait:
             }
 #ifdef P2P_SUPPORT
             /* In case of P2P target detected but lost, inform application to restart discovery */
-            else if (pRfIntf->Protocol == PROT_NFCDEP) {
+            else if ((_mode & NXPNCI_MODE_P2P) && (pRfIntf->Protocol == PROT_NFCDEP)) {
                 /* Restart the discovery loop */
                 NxpNci_HostTransceive(NCIStopDiscovery, sizeof(NCIStopDiscovery), Answer, sizeof(Answer), &AnswerSize);
                 NxpNci_WaitForReception(Answer, sizeof(Answer), &AnswerSize, TIMEOUT_100MS);
@@ -1102,7 +1105,7 @@ DFRobot_PN7150_I2C::DFRobot_PN7150_I2C(TwoWire* pWire, uint8_t i2cAddr)
     _deviceAddr = i2cAddr;
 }
 
-bool DFRobot_PN7150_I2C::begin()
+bool DFRobot_PN7150_I2C::begin(unsigned char mode)
 {
     /* Open connection to NXPNCI device */
     if (NxpNci_Connect() == NFC_ERROR) {
@@ -1115,14 +1118,9 @@ bool DFRobot_PN7150_I2C::begin()
         return false;
     }
 
-    if (NxpNci_ConfigureMode(mode) == NFC_ERROR) {
+    _mode = mode;
+    if (NxpNci_ConfigureMode() == NFC_ERROR) {
         NCI_PRINT("Error: cannot configure NXPNCI\n");
-        return false;
-    }
-
-    /* Start Discovery */
-    if (NxpNci_StartDiscovery() != NFC_SUCCESS) {
-        NCI_PRINT("Error: cannot start discovery\n");
         return false;
     }
 
@@ -1273,7 +1271,7 @@ void DFRobot_PN7150_I2C::tml_Receive(uint8_t* pBuffer, uint16_t BufferLen, uint1
         if (SUCCESS == tml_Rx(pBuffer, BufferLen, pBytes)) {   // PN7150 indicates it has data by driving IRQ signal HIGH
             return;
         }
-        delay(5);
+        delay(10);
     }
     *pBytes = 0;
 }

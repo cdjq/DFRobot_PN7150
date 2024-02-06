@@ -13,9 +13,9 @@ import sys
 import time
 
 import array
-import smbus
+
+from smbus2 import SMBus, i2c_msg
 import RPi.GPIO as GPIO
-from i2c import LinuxI2C
 
 import logging
 from ctypes import *
@@ -37,9 +37,16 @@ logger.addHandler(ph)
 ## i2c address
 PN7150_I2C_ADDR = 0x28
 
-_TICKS_PERIOD = 1 << 29
-
 _STATUS_OK = 0x00
+
+PROT_UNDETERMINED = 0x0
+PROT_T1T = 0x1
+PROT_T2T = 0x2
+PROT_T3T = 0x3
+PROT_ISODEP = 0x4
+PROT_NFCDEP = 0x5
+PROT_T5T = 0x6
+PROT_MIFARE = 0x80
 
 _status = {
     # Status
@@ -218,54 +225,6 @@ class Card:
         return ":".join("{:02x}".format(x) for x in self.rest[3 : 3 + id_length])
 
 
-# class DFRobot_PN7150(object):
-#   '''!
-#     @brief Define DFRobot_PN7150 basic class
-#   '''
-
-#   def __init__(self):
-#     '''!
-#       @brief Module init
-#     '''
-#     pass
-
-#   def get_CMDID(self):
-#     '''!
-#       @brief Get the ID corresponding to the command word
-#       @return Return the obtained command word ID, returning 0 means no valid ID is obtained
-#     '''
-#     time.sleep(0.05)   # Prevent the access rate from interfering with other functions of the voice module
-#     return self._read_reg(PN7150_I2C_REG_CMDID)
-
-#   def play_by_CMDID(self, CMDID):
-#     '''!
-#       @brief Play the corresponding reply audio according to the command word ID
-#       @param CMDID - Command word ID
-#       @note Can enter wake-up state through ID-1 in I2C mode
-#     '''
-#     self._write_reg(PN7150_I2C_REG_PLAY_CMDID, CMDID)
-#     time.sleep(1)
-
-#   def _write_reg(self, reg, data):
-#       '''!
-#         @brief writes data to a register
-#         @param reg register address
-#         @param data written data
-#       '''
-#       # Low level register writing, not implemented in base class
-#       raise NotImplementedError()
-
-#   def _read_reg(self, reg, length):
-#       '''!
-#         @brief read the data from the register
-#         @param reg register address
-#         @param length read data length
-#         @return read data list
-#       '''
-#       # Low level register writing, not implemented in base class
-#       raise NotImplementedError()
-
-
 class DFRobot_PN7150(object):
     """!
     @brief Define DFRobot_PN7150_I2C basic class
@@ -278,32 +237,19 @@ class DFRobot_PN7150(object):
         @param bus - I2C bus
         """
         self._addr = i2c_addr
-        # self._i2c = smbus.SMBus(bus)
+        self._i2c = SMBus(bus)
         self._debug = False
         self._buf = bytearray(3 + 255)
         self.fw_version = self._buf[64]
-        self.i2c = LinuxI2C(bus)
-        # print(self.i2c.scan())
+
         # self._cs = cs
         # GPIO.setmode(GPIO.BCM)
         # GPIO.setwarnings(False)
         # GPIO.setup(self._cs, GPIO.IN, initial=1)
         # super(DFRobot_PN7150_I2C, self).__init__()
 
-    def off(self):
-        """Function off."""
-        # self._ven.value = 0
-
-    def reset(self):
-        """Function reset."""
-        # self._ven.value = 0
-        time.sleep(0.001)
-        # self._ven.value = 1
-        time.sleep(0.003)
-
     def _connect(self):
         """Function connect."""
-        self.reset()
         self._write_block(NCI_CORE_RESET_CMD)
         end = self._read_wait(15)
         if (
@@ -340,25 +286,21 @@ class DFRobot_PN7150(object):
             return False
 
         # print("FW_Build_Number:", self._buf[4:8])
-
         return True
 
     def connect(self):
         """Function connect."""
-        # assert self._i2c.try_lock()
-        # try:
-        ok = self._connect()
-        # finally:
-        #     # self._i2c.unlock()
-        #     print("finally connect")
+        try:
+            ok = self._connect()
+        finally:
+            # print("finally connect")
+            pass
         return ok
 
     def mode_rw(self):
         """Function mode Read/Write."""
-        # assert self._i2c.try_lock()
         self._write_block(NCI_RF_DISCOVER_MAP_RW)
         end = self._read_wait(10)
-        # self._i2c.unlock()
         return (
             end >= 4
             and self._buf[0] == 0x41
@@ -368,10 +310,8 @@ class DFRobot_PN7150(object):
 
     def start_discovery_rw(self):
         """Function Start Discovery Read/Write."""
-        # assert self._i2c.try_lock()
         self._write_block(NCI_RF_DISCOVER_CMD_RW)
         end = self._read_wait()
-        # self._i2c.unlock()
         return (
             end >= 4
             and self._buf[0] == 0x41
@@ -381,10 +321,8 @@ class DFRobot_PN7150(object):
 
     def stop_discovery(self):
         """Function stop Discovery."""
-        # assert self._i2c.try_lock()
         self._write_block(NCI_RF_DEACTIVATE_CMD)
         end = self._read_wait()
-        # self._i2c.unlock()
         return (
             end >= 4
             and self._buf[0] == 0x41
@@ -394,20 +332,17 @@ class DFRobot_PN7150(object):
 
     def wait_for_card(self):
         """Function wait for Card."""
-        # assert self._i2c.try_lock()
         while True:
             end = 0
             while end == 0:
                 end = self._read_wait()
             if self._buf[0] == 0x61 and self._buf[1] == 0x05:
                 break
-        # self._i2c.unlock()
 
         return Card(self._buf, end)
 
     def tag_cmd(self, cmd: bytes, conn_id: int = 0):
         """Function tag cmd."""
-        # assert self._i2c.try_lock()
         self._buf[0] = conn_id
         self._buf[1] = 0x00
         self._buf[2] = len(cmd)
@@ -415,12 +350,15 @@ class DFRobot_PN7150(object):
         self._buf[3:end] = cmd
         self._write_block(self._buf, end=end)
 
-        while True:
+        base = time.time() * 100
+        timeout = 5
+        # while True:
+        while (time.time() * 100 - base) < timeout:
             end = self._read_wait()
             if self._buf[0] & 0xE0 == 0x00:
                 break
+            time.sleep(0.001)
 
-        # self._i2c.unlock()
         return self._buf[3:end]
 
     def _read_wait(self, timeout: int = 5):
@@ -429,43 +367,36 @@ class DFRobot_PN7150(object):
         @param timeout - timeout
         @return read data
         """
-        base = time.time() * 1000
-        # while self._irq.value == 0:
-        #     if (base + time.time()) % _TICKS_PERIOD >= timeout:
-        #         return 0
-        while 1:
+        base = time.time() * 100
+        while (time.time() * 100 - base) < timeout:
             count = self._read_block()
-            # print((time.time() * 1000 - base))
             if 3 < count:
                 return count
+            # print((time.time() * 100 - base))
             time.sleep(0.01)
         return 0
 
-    def _read_block(self, cmd: int = 0):
+    def _read_block(self):
         """!
         @brief read the data from the register
-        @param cmd - register address
         @return read data
         """
         end = 0
         try:
-            # self._buf = self._i2c.read_i2c_block_data(self._addr, cmd, 3)
-            self._buf = self.i2c.readfrom(self._addr, 3)
+            read_msg = i2c_msg.read(self._addr, 3)
+            self._i2c.i2c_rdwr(read_msg)
+            self._buf[0:2] = list(read_msg)
             end = 3
             if self._buf[2] > 0:
-                # self._buf[3:] = self._i2c.read_i2c_block_data(self._addr, cmd, end)
-                self._buf[3:] = self.i2c.readfrom(self._addr, self._buf[2])
-                end = 3 + self._buf[2]
-        # except:
-        #     pass
+                read_msg = i2c_msg.read(self._addr, self._buf[2])
+                self._i2c.i2c_rdwr(read_msg)
+                if len(list(read_msg)) == self._buf[2]:
+                    self._buf[3:] = list(read_msg)
+                    end = 3 + self._buf[2]
         except IOError as e:
-            # 捕获 IOError 异常
             # print(f"I/O error: {e}")
-            # 可以添加其他处理逻辑，例如重试或记录错误信息
             pass
-
         except Exception as e:
-            # 捕获其他异常
             print(f"An unexpected error occurred: {e}")
         if self._debug:
             dump_package(self._buf, end, prefix="< ")
@@ -477,28 +408,16 @@ class DFRobot_PN7150(object):
         @param cmd - written data
         @param end - data len
         """
-        # while self._irq.value == 1:
-        #     self.__read()
-        # self._read_wait()
+        self._read_block()
         if not end:
             end = len(cmd)
         if self._debug:
             dump_package(cmd, end, prefix="> ")
         try:
-            # if end == 1:
-            #     self._i2c.write_byte_data(self._addr, cmd[0])
-            # else:
-            #     self._i2c.write_i2c_block_data(self._addr, cmd[0], list(cmd[1:end]))
-            # self.i2c.writeto(self._addr, list(cmd))
-            self.i2c.writeto(self._addr, list(cmd[0:end]))
-            # while 1:
-            #     pass
-
+            write_msg = i2c_msg.write(self._addr, cmd[0:end])
+            self._i2c.i2c_rdwr(write_msg)
         except IOError as e:
-            # 捕获 IOError 异常
-            print(f"I/O error: {e}")
+            # print(f"I/O error: {e}")
             self._write_block(cmd)
-        # if isinstance(data, int):
-        #   data = [data]
-        #   #logger.info(data)
-        # self._i2c.write_i2c_block_data(self._addr, reg, data)
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")

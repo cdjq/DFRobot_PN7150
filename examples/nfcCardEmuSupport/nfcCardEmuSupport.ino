@@ -12,6 +12,15 @@
 
 #define CARDEMU_RAW_EXCHANGE
 
+/* Discovery loop configuration according to the targeted modes of operation */
+unsigned char DiscoveryTechnologies[] = {
+    MODE_LISTEN | TECH_PASSIVE_NFCA,
+    MODE_LISTEN | TECH_PASSIVE_NFCB,
+};
+
+/* Mode configuration according to the targeted modes of operation */
+unsigned char mode = NXPNCI_MODE_CARDEMU;
+
 DFRobot_PN7150_I2C PN7150;
 DFRobot_PN7150_I2C::NxpNci_RfIntf_t RfInterface;
 
@@ -81,8 +90,13 @@ void setup()
 
   // Initialize the NFC module
   Serial.print("Connecting Device . . .");
-  while (!(PN7150.begin())) {
+  while (!(PN7150.begin(mode))) {
     Serial.print(" .");
+    delay(1000);
+  }
+  /* Start Discovery */
+  while (PN7150.NxpNci_StartDiscovery(DiscoveryTechnologies, sizeof(DiscoveryTechnologies)) != NFC_SUCCESS) {
+    Serial.print("Error: cannot start discovery\n");
     delay(1000);
   }
   Serial.println("\nBegin ok!");

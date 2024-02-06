@@ -141,6 +141,8 @@ extern unsigned short debug_loop;
 class DFRobot_PN7150
 {
 public:
+  unsigned char _mode;
+
   /*
    * Definition of operations handled when processing Reader mode
    */
@@ -224,9 +226,10 @@ public:
   /**
    * @fn begin
    * @brief Init function
+   * @param mode nfc mode
    * @return bool type, true if successful, false if error
    */
-  virtual bool begin(void) = 0;
+  virtual bool begin(unsigned char mode) = 0;
 
   /**********************************************************************/
 
@@ -262,7 +265,7 @@ public:
    * - mode: specifies which modes to be configured (see NXPNCI_MODE_xxx flags)
    * return NFC_SUCCESS or NFC_ERROR
    */
-  bool NxpNci_ConfigureMode(unsigned char mode);
+  bool NxpNci_ConfigureMode(void);
 
   /*
    * Configure NXP-NCI device parameters
@@ -278,8 +281,8 @@ public:
    * - TechTabSize: number of items in the list
    * return NFC_SUCCESS or NFC_ERROR
    */
-  bool NxpNci_StartDiscovery(void);
-  // bool NxpNci_StartDiscovery(unsigned char* pTechTab, unsigned char TechTabSize);
+  // bool NxpNci_StartDiscovery(void);
+  bool NxpNci_StartDiscovery(unsigned char* pTechTab, unsigned char TechTabSize);
 
   /*
    * Stop NFC Discovery loop
@@ -457,9 +460,10 @@ public:
   /**
    * @fn begin
    * @brief Subclass init function
+   * @param mode nfc mode
    * @return Bool type, true for success, false for failure
    */
-  virtual bool begin(void);
+  virtual bool begin(unsigned char mode = NXPNCI_MODE_RW);
 
 protected:
   void tml_Connect(void);

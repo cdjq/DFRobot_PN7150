@@ -10,6 +10,24 @@
  */
 #include "DFRobot_PN7150.h"
 
+/* Discovery loop configuration according to the targeted modes of operation */
+unsigned char DiscoveryTechnologies[] = {
+    MODE_POLL | TECH_PASSIVE_NFCA,
+    MODE_POLL | TECH_PASSIVE_NFCF,
+
+    /* Only one POLL ACTIVE mode can be enabled, if both are defined only NFCF applies */
+    MODE_POLL | TECH_ACTIVE_NFCA,
+    //MODE_POLL | TECH_ACTIVE_NFCF,
+
+    MODE_LISTEN | TECH_PASSIVE_NFCA,
+    MODE_LISTEN | TECH_PASSIVE_NFCF,
+    MODE_LISTEN | TECH_ACTIVE_NFCA,
+    MODE_LISTEN | TECH_ACTIVE_NFCF,
+};
+
+/* Mode configuration according to the targeted modes of operation */
+unsigned char mode = NXPNCI_MODE_P2P;
+
 DFRobot_PN7150_I2C PN7150;
 DFRobot_PN7150_I2C::NxpNci_RfIntf_t RfInterface;
 
@@ -161,8 +179,13 @@ void setup()
 
   // Init the sensor
   Serial.print("Connecting Device . . .");
-  while (!(PN7150.begin())) {
+  while (!(PN7150.begin(mode))) {
     Serial.print(" .");
+    delay(1000);
+  }
+  /* Start Discovery */
+  while (PN7150.NxpNci_StartDiscovery(DiscoveryTechnologies, sizeof(DiscoveryTechnologies)) != NFC_SUCCESS) {
+    Serial.print("Error: cannot start discovery\n");
     delay(1000);
   }
   Serial.println("\nBegin ok!");

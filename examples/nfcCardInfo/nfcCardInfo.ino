@@ -18,7 +18,19 @@
 */
 #include "DFRobot_PN7150.h"
 
+/* Discovery loop configuration according to the targeted modes of operation */
+unsigned char DiscoveryTechnologies[] = {
+    MODE_POLL | TECH_PASSIVE_NFCA,
+    MODE_POLL | TECH_PASSIVE_NFCF,
+    MODE_POLL | TECH_PASSIVE_NFCB,
+    MODE_POLL | TECH_PASSIVE_15693,
+};
+
+/* Mode configuration according to the targeted modes of operation */
+unsigned char mode = NXPNCI_MODE_RW;
+
 #define PRINT_BUF(x,y,z)  {unsigned int loop; printf(x); for(loop=0;loop<z;loop++) printf("%.2x ", y[loop]); printf("\n");}
+
 
 DFRobot_PN7150_I2C PN7150;
 DFRobot_PN7150_I2C::NxpNci_RfIntf_t RfInterface;
@@ -28,8 +40,13 @@ void setup()
   Serial.begin(115200);
   // Initialize the NFC module
   Serial.print("Connecting Device . . .");
-  while (!(PN7150.begin())) {
+  while (!(PN7150.begin(mode))) {
     Serial.print(" .");
+    delay(1000);
+  }
+  /* Start Discovery */
+  while (PN7150.NxpNci_StartDiscovery(DiscoveryTechnologies, sizeof(DiscoveryTechnologies)) != NFC_SUCCESS) {
+    Serial.print("Error: cannot start discovery\n");
     delay(1000);
   }
   Serial.println("\nBegin ok!");
@@ -118,5 +135,5 @@ void task_nfc_reader(DFRobot_PN7150_I2C::NxpNci_RfIntf_t RfIntf)
 
   /* Restart discovery loop */
   PN7150.NxpNci_StopDiscovery();
-  while (PN7150.NxpNci_StartDiscovery());
+  while (PN7150.NxpNci_StartDiscovery(DiscoveryTechnologies,sizeof(DiscoveryTechnologies)));
 }
