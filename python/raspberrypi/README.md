@@ -27,16 +27,17 @@
 
 ```python
 sudo git clone https://github.com/DFRobot/DFRobot_PN7150
+pip install smbus2
 ```
 
-2. Open and run the routine. To execute a routine demo_x.py, enter python demo_x.py in the command line. For example, to execute the routine i2c.py, you need to enter:<br>
+2. Open and run the routine. To execute a routine demo_x.py, enter python demo_x.py in the command line. For example, to execute the routine simpletest.py, you need to enter:<br>
 
 ```python
-python i2c.py
+python simpletest.py
 or 
-python2 i2c.py
+python2 simpletest.py
 or 
-python3 i2c.py
+python3 simpletest.py
 ```
 
 

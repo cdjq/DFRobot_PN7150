@@ -2,6 +2,7 @@
 """ 
   @file  DFRobot_PN7150.py
   @note  DFRobot_PN7150 Class infrastructure, implementation of underlying methods
+  @n This code reference: https://github.com/esmil/pn7150
   @copyright  Copyright (c) 2010 DFRobot Co.Ltd (http://www.dfrobot.com)
   @licence  The MIT License (MIT)
   @author  [qsjhyy](yihuan.huang@dfrobot.com)
@@ -11,11 +12,9 @@
 """
 import sys
 import time
-
-import array
+import platform
 
 from smbus2 import SMBus, i2c_msg
-import RPi.GPIO as GPIO
 
 import logging
 from ctypes import *
@@ -71,13 +70,21 @@ _status = {
 
 
 def status(val: int):
-    """Function for status"""
+    """!
+    @brief Function for status
+    @param val - status code
+    """
     return _status.get(val, None) or "0x{:02x}".format(val)
 
 
 # pylint: disable=too-many-branches
 def dump_package(buf: bytes, end: int, prefix: str = ""):
-    """Function dump_package."""
+    """!
+    @brief Function dump_package.
+    @param buf - Unparsed data
+    @param end - Length
+    @param prefix - Prefix code
+    """
     fst, snd = buf[0], buf[1]
     if fst & 0xE0 == 0:
         print(
@@ -203,9 +210,14 @@ NCI_RF_DEACTIVATE_CMD = b"\x21\x06\x01\x00"
 
 
 class Card:
-    """Class card."""
+    """!
+    @brief Class card.
+    """
 
     def __init__(self, buf: bytearray, end: int):
+        """!
+        @brief Card structure init
+        """
         self.card_id = buf[3]
         self.interface = buf[4]
         self.protocol = buf[5]
@@ -216,7 +228,9 @@ class Card:
         self.rest = buf[10:end]
 
     def nfcid1(self) -> str:
-        """Function decode NFCID1 of rfts for NFC_A_PASSIVE_POLL_MODE"""
+        """!
+        @brief Function decode NFCID1 of rfts for NFC_A_PASSIVE_POLL_MODE
+        """
         if self.modetech != 0x00:
             return None
 
@@ -227,7 +241,7 @@ class Card:
 
 class DFRobot_PN7150(object):
     """!
-    @brief Define DFRobot_PN7150_I2C basic class
+    @brief Define DFRobot_PN7150 basic class
     """
 
     def __init__(self, i2c_addr=PN7150_I2C_ADDR, bus=1):
@@ -236,20 +250,18 @@ class DFRobot_PN7150(object):
         @param i2c_addr - I2C communication address
         @param bus - I2C bus
         """
+        if platform.node() == "unihiker":
+            bus = 4
         self._addr = i2c_addr
         self._i2c = SMBus(bus)
         self._debug = False
         self._buf = bytearray(3 + 255)
         self.fw_version = self._buf[64]
 
-        # self._cs = cs
-        # GPIO.setmode(GPIO.BCM)
-        # GPIO.setwarnings(False)
-        # GPIO.setup(self._cs, GPIO.IN, initial=1)
-        # super(DFRobot_PN7150_I2C, self).__init__()
-
     def _connect(self):
-        """Function connect."""
+        """!
+        @brief Function connect.
+        """
         self._write_block(NCI_CORE_RESET_CMD)
         end = self._read_wait(15)
         if (
@@ -289,7 +301,9 @@ class DFRobot_PN7150(object):
         return True
 
     def connect(self):
-        """Function connect."""
+        """!
+        @brief Function connect.
+        """
         try:
             ok = self._connect()
         finally:
@@ -298,7 +312,9 @@ class DFRobot_PN7150(object):
         return ok
 
     def mode_rw(self):
-        """Function mode Read/Write."""
+        """!
+        @brief Function mode Read/Write.
+        """
         self._write_block(NCI_RF_DISCOVER_MAP_RW)
         end = self._read_wait(10)
         return (
@@ -309,7 +325,9 @@ class DFRobot_PN7150(object):
         )
 
     def start_discovery_rw(self):
-        """Function Start Discovery Read/Write."""
+        """!
+        @brief Function Start Discovery Read/Write.
+        """
         self._write_block(NCI_RF_DISCOVER_CMD_RW)
         end = self._read_wait()
         return (
@@ -320,7 +338,9 @@ class DFRobot_PN7150(object):
         )
 
     def stop_discovery(self):
-        """Function stop Discovery."""
+        """!
+        @brief Function stop Discovery.
+        """
         self._write_block(NCI_RF_DEACTIVATE_CMD)
         end = self._read_wait()
         return (
@@ -331,7 +351,9 @@ class DFRobot_PN7150(object):
         )
 
     def wait_for_card(self):
-        """Function wait for Card."""
+        """!
+        @brief Function wait for Card.
+        """
         while True:
             end = 0
             while end == 0:
@@ -342,7 +364,11 @@ class DFRobot_PN7150(object):
         return Card(self._buf, end)
 
     def tag_cmd(self, cmd: bytes, conn_id: int = 0):
-        """Function tag cmd."""
+        """!
+        @brief Function tag cmd.
+        @param cmd - tag cmd
+        @param conn_id - conn_id
+        """
         self._buf[0] = conn_id
         self._buf[1] = 0x00
         self._buf[2] = len(cmd)
@@ -352,7 +378,6 @@ class DFRobot_PN7150(object):
 
         base = time.time() * 100
         timeout = 5
-        # while True:
         while (time.time() * 100 - base) < timeout:
             end = self._read_wait()
             if self._buf[0] & 0xE0 == 0x00:

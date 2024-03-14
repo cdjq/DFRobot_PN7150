@@ -1,6 +1,6 @@
 /*!
- * @file  test.ino
- * @brief
+ * @file  nfcP2PSupport.ino
+ * @brief example of communication with a remote peer transmitter
  * @copyright  Copyright (c) 2010 DFRobot Co.Ltd (http://www.dfrobot.com)
  * @licence  The MIT License (MIT)
  * @author  [qsjhyy](yihuan.huang@dfrobot.com)

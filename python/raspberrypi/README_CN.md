@@ -26,15 +26,16 @@
 1. 下载库至树莓派，要使用这个库，首先要将库下载到Raspberry Pi，命令下载方法如下:<br>
 ```python
 sudo git clone https://github.com/DFRobot/DFRobot_PN7150
+pip install smbus2
 ```
-2. 打开并运行例程，要执行一个例程demo_x.py，请在命令行中输入python demo_x.py。例如，要执行 i2c.py例程，你需要输入:<br>
+2. 打开并运行例程，要执行一个例程demo_x.py，请在命令行中输入python demo_x.py。例如，要执行 simpletest.py例程，你需要输入:<br>
 
 ```python
-python i2c.py 
+python simpletest.py 
 或 
-python2 i2c.py 
+python2 simpletest.py 
 或 
-python3 i2c.py
+python3 simpletest.py
 ```
 
 

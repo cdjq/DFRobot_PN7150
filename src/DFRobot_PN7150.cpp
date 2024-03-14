@@ -10,7 +10,7 @@
  */
 #include "DFRobot_PN7150.h"
 
- // 声明 C++ 函数，确保使用 extern "C"
+ // Declare C++ functions to ensure use of extern "C"
 #ifdef __cplusplus
 extern "C" {
 #endif

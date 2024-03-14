@@ -34,6 +34,179 @@ There two methods:
 
 ```C++
 
+  /**
+   * @fn begin
+   * @brief Init function
+   * @param mode nfc mode
+   * @n     specifies which modes to be configured (see NXPNCI_MODE_xxx flags)
+   * @return bool type, true if successful, false if error
+   */
+  virtual bool begin(unsigned char mode) = 0;
+
+  /**********************************************************************/
+
+  /***** NFC dedicated API **********************************************/
+
+  /**
+   * @fn NxpNci_Connect
+   * @brief Open connection to the NXP-NCI device
+   * @return NFC_SUCCESS or NFC_ERROR
+   */
+  bool NxpNci_Connect(void);
+
+  /**
+   * @fn NxpNci_Disconnect
+   * @brief Close connection to the NXP-NCI device
+   * @return NFC_SUCCESS or NFC_ERROR
+   */
+  bool NxpNci_Disconnect(void);
+
+  /**
+   * @fn NxpNci_GetFwVersion
+   * @brief Get NXP-NCI device FW version (3 bytes)
+   * @return None
+   */
+  void NxpNci_GetFwVersion(unsigned char fw[3]);
+
+  /**
+   * @fn NxpNci_ConfigureSettings
+   * @brief Configure NXP-NCI device settings
+   * @note Related settings are defined in Nfc_settings.h header file
+   * @n    To be called after NxpNci_Connect() and prior to NxpNci_ConfigureMode() APIs
+   * @return NFC_SUCCESS or NFC_ERROR
+   */
+  bool NxpNci_ConfigureSettings(void);
+
+  /**
+   * @fn NxpNci_ConfigureMode
+   * @brief Configure NXP-NCI device mode
+   * @return NFC_SUCCESS or NFC_ERROR
+   */
+  bool NxpNci_ConfigureMode(void);
+
+  /**
+   * @fn NxpNci_ConfigureParams
+   * @brief Configure NXP-NCI device parameters
+   * @param pCmd: NCI CORE_SET_CONFIG_CMD frame
+   * @param CmdSize: NCI CORE_SET_CONFIG_CMD frame size
+   * @return NFC_SUCCESS or NFC_ERROR
+   */
+  bool NxpNci_ConfigureParams(unsigned char* pCmd, unsigned short CmdSize);
+
+  /**
+   * @fn NxpNci_StartDiscovery
+   * @brief Start NFC Discovery loop for remote NFC device detection
+   * @param pTechTab: list of NFC technologies to look for (see TECH_xxx_xxx flags)
+   * @param TechTabSize: number of items in the list
+   * @return NFC_SUCCESS or NFC_ERROR
+   */
+  bool NxpNci_StartDiscovery(unsigned char* pTechTab, unsigned char TechTabSize);
+
+  /**
+   * @fn NxpNci_StopDiscovery
+   * @brief Stop NFC Discovery loop
+   * @return NFC_SUCCESS or NFC_ERROR
+   */
+  bool NxpNci_StopDiscovery(void);
+
+  /**
+   * @fn NxpNci_WaitForDiscoveryNotification
+   * @brief Wait until remote NFC device is discovered
+   * @param pRfIntf: filled with discovered NFC remote device properties
+   * @return NFC_SUCCESS or NFC_ERROR
+   */
+  bool NxpNci_WaitForDiscoveryNotification(NxpNci_RfIntf_t* pRfIntf);
+
+  /**********************************************************************/
+
+  /***** Reader/writer dedicated APIs ***********************************/
+#ifdef RW_SUPPORT
+  /**
+   * @fn NxpNci_ProcessReaderMode
+   * @brief Process the operation identified as parameter with discovered remote NFC tag (function is blocking until the end of the operation)
+   * @param RfIntf: discovered NFC device properties
+   * @param Operation: select operation to be done with the remote NFC tag
+   * @n     - READ_NDEF: extract NDEF message from the tag, previously registered callback function will be called whenever complete NDEF message is found.
+   * @n     - WRITE_NDEF: write previously registered NDEF message to the tag
+   * @n     - PRESENCE_CHECK: perform presence check until tag has been removed (function is blocking until card is removed)
+   * @return None
+   */
+  void NxpNci_ProcessReaderMode(NxpNci_RfIntf_t RfIntf, NxpNci_RW_Operation_t Operation);
+
+  /**
+   * @fn NxpNci_ReaderTagCmd
+   * @brief Perform RAW transceive operation (send then receive) with the remote tag
+   * @param pCommand: pointer to the command to send
+   * @param CommandSize: command size
+   * @param pAnswer: pointer to buffer for getting the response
+   * @param pAnswerSize: response size
+   * @return NFC_SUCCESS or NFC_ERROR
+   */
+  bool NxpNci_ReaderTagCmd(unsigned char* pCommand, unsigned char CommandSize, unsigned char* pAnswer, unsigned char* pAnswerSize);
+
+  /**
+   * @fn NxpNci_ReaderActivateNext
+   * @brief Perform activation of the next tag (in case of multiple tag detection or multi-protocol tag)
+   * @param pRfIntf: filled with discovered NFC remote device properties
+   * @return NFC_SUCCESS or NFC_ERROR
+   */
+  bool NxpNci_ReaderActivateNext(NxpNci_RfIntf_t* pRfIntf);
+
+  /**
+   * @fn NxpNci_ReaderReActivate
+   * @brief Perform deactivation then reactivation of the current tag
+   * @param pRfIntf: filled with discovered NFC remote device properties
+   * @return NFC_SUCCESS or NFC_ERROR
+   */
+  bool NxpNci_ReaderReActivate(NxpNci_RfIntf_t* pRfIntf);
+#endif
+  /**********************************************************************/
+
+  /***** Card Emulation dedicated APIs **********************************/
+#ifdef CARDEMU_SUPPORT
+
+  /**
+   * @fn NxpNci_ProcessCardMode
+   * @brief Expose the previously registered NDEF message to discovered remote NFC reader (function is blocking until the remote reader is lost):
+   * @param RfIntf: discovered NFC device properties
+   * @return None
+   */
+  void NxpNci_ProcessCardMode(NxpNci_RfIntf_t RfIntf);
+
+  /**
+   * @fn NxpNci_CardModeReceive
+   * @brief Perform RAW reception of data from the remote reader
+   * @param pData: pointer to buffer for getting the data
+   * @param pDataSize: received data size
+   * @return NFC_SUCCESS or NFC_ERROR
+   */
+  bool NxpNci_CardModeReceive(unsigned char* pData, unsigned char* pDataSize);
+
+  /**
+   * @fn NxpNci_CardModeSend
+   * @brief Perform RAW transmission of data from the remote reader
+   * @param Data: pointer to data to transmit
+   * @param DataSize: size of data to transmit
+   * @return NFC_SUCCESS or NFC_ERROR
+   */
+  bool NxpNci_CardModeSend(unsigned char* pData, unsigned char DataSize);
+#endif
+  /**********************************************************************/
+
+  /***** P2P dedicated APIs *********************************************/
+#ifdef P2P_SUPPORT
+  /**
+   * @fn NxpNci_ProcessP2pMode
+   * @brief Process P2P operation (function is blocking until the remote peer is lost):
+   * @n        SNEP server to allow receiving NDEF message from remote NFC P2P device
+   * @n        SNEP client to send previously registered NDEF message
+   * @param RfIntf: discovered NFC device properties
+   * @return None
+   */
+  void NxpNci_ProcessP2pMode(NxpNci_RfIntf_t RfIntf);
+#endif
+  /**********************************************************************/
+
 ```
 
 

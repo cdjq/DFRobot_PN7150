@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*
 """ 
-  @file  i2c.py
-  @brief  Control the voice recognition module via I2C
-  @n  Get the recognized command ID and play the corresponding reply audio according to the ID;
-  @n  Get and set the wake-up state duration, set mute mode, set volume, and enter the wake-up state
+  @file  simpletest.py
+  @brief  Read the basic information of the card and read and write the card memory
   @copyright  Copyright (c) 2010 DFRobot Co.Ltd (http://www.dfrobot.com)
   @licence  The MIT License (MIT)
   @author  [qsjhyy](yihuan.huang@dfrobot.com)
@@ -25,7 +23,7 @@ from time import sleep
   @param i2c_addr - I2C communication address
   @param bus - I2C bus
 """
-PN7150 = DFRobot_PN7150(i2c_addr=PN7150_I2C_ADDR, bus=1)
+PN7150 = DFRobot_PN7150()
 
 
 def setup():

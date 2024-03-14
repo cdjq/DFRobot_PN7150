@@ -168,7 +168,7 @@ void NdefPush_Cb(unsigned char* pNdefRecord, unsigned short NdefRecordSize)
   Serial.print("--- NDEF Record sent\n\n");
 }
 #endif // if defined P2P_SUPPORT || defined CARDEMU_SUPPORT
-
+ 
 #ifdef RW_RAW_EXCHANGE
 void PCD_MIFARE_scenario(void)
 {
@@ -325,7 +325,7 @@ void task_nfc_reader(DFRobot_PN7150_I2C::NxpNci_RfIntf_t RfIntf)
     RW_NDEF_SetMessage((unsigned char*)NDEF_MESSAGE, sizeof(NDEF_MESSAGE), *NdefPush_Cb);
     /* Process NDEF message write */
     PN7150.NxpNci_ReaderReActivate(&RfIntf);
-    PN7150.NxpNci_ProcessReaderMode(RfIntf, DFRobot_PN7150::WRITE_NDEF);
+    PN7150.NxpNci_ProcessReaderMode(RfIntf, PN7150.WRITE_NDEF);
 #endif // ifdef RW_NDEF_WRITING
 #else // ifndef RW_RAW_EXCHANGE
     /* What's the detected card type ? */

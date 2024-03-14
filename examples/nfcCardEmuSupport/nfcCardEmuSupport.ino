@@ -1,6 +1,6 @@
 /*!
  * @file nfcCardEmuSupport.ino
- * @brief nfc 卡模拟示例
+ * @brief nfc card simulation example
  * @copyright  Copyright (c) 2010 DFRobot Co.Ltd (http://www.dfrobot.com)
  * @license     The MIT license (MIT)
  * @author  [qsjhyy](yihuan.huang@dfrobot.com)
